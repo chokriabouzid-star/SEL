@@ -1,0 +1,25 @@
+{
+  "id": "test-1",
+  "version": "1.0.0",
+  "metadata": {
+    "description": "مهمة اختبار بسيطة وصالحة",
+    "source": "sel-test",
+    "created": "2024-01-01"
+  },
+  "execution": {
+    "actions": [
+      {
+        "id": 1,
+        "type": "command",
+        "command": "echo",
+        "args": ["✅ اختبار SEL Engine ناجح!"],
+        "working_directory": "/workspace/${mission_id}",
+        "timeout_seconds": 30,
+        "verification": {
+          "exit_code": 0,
+          "output_contains": "SEL"
+        }
+      }
+    ]
+  }
+}

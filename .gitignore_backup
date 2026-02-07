@@ -1,0 +1,28 @@
+# Build artifacts
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Editor files
+*.swp
+*.swo
+*~
+.DS_Store
+.idea/
+.vscode/
+
+# System files
+Thumbs.db
+
+# Logs
+*.log
+facts_*.jsonl
+
+# Temporary files
+tmp/
+temp/
+
+# OS specific
+.DS_Store
+._*
+Thumbs.db

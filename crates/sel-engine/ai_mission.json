@@ -1,0 +1,76 @@
+{
+  "id": "ai-demo-001",
+  "version": "1.0.0",
+  "metadata": {
+    "ai_model": "DeepSeek",
+    "ai_timestamp": "2024-01-01T10:30:00Z",
+    "requirement": "بناء برنامج Python يرحب بالتعاون بين AI و SEL",
+    "ai_note": "هذه مهمة من AI إلى SEL. SEL لا يقرأ هذه الملاحظات."
+  },
+  "execution": {
+    "actions": [
+      {
+        "id": 1,
+        "type": "command",
+        "command": "mkdir",
+        "args": ["-p", "ai_sel_demo"],
+        "working_directory": "/workspace/${mission_id}",
+        "timeout_seconds": 10,
+        "verification": {
+          "exit_code": 0
+        }
+      },
+      {
+        "id": 2,
+        "type": "command", 
+        "command": "echo",
+        "args": ["#!/usr/bin/env python3", "\n", "# برنامج ترحيب من AI إلى SEL", "print('🤖 → 🤖: مرحباً SEL!')", "print('🚀 بدأنا التعاون!')", "print('📅 ' + __import__('datetime').datetime.now().isoformat())", "print('✅ AI + SEL = نظام سيادي')"],
+        "working_directory": "/workspace/${mission_id}/ai_sel_demo",
+        "timeout_seconds": 10,
+        "verification": {
+          "exit_code": 0,
+          "output_contains": "AI"
+        }
+      },
+      {
+        "id": 3,
+        "type": "command",
+        "command": "bash",
+        "args": ["-c", "echo '#!/usr/bin/env python3' > hello_sel.py && echo 'print(\"🤖 → 🤖: مرحباً SEL!\")' >> hello_sel.py && echo 'print(\"🚀 بدأنا التعاون!\")' >> hello_sel.py && echo 'from datetime import datetime' >> hello_sel.py && echo 'print(f\"📅 {datetime.now().isoformat()}\")' >> hello_sel.py && echo 'print(\"✅ AI + SEL = نظام سيادي\")' >> hello_sel.py"],
+        "working_directory": "/workspace/${mission_id}/ai_sel_demo",
+        "timeout_seconds": 10,
+        "verification": {
+          "exit_code": 0
+        }
+      },
+      {
+        "id": 4,
+        "type": "command",
+        "command": "python3",
+        "args": ["hello_sel.py"],
+        "working_directory": "/workspace/${mission_id}/ai_sel_demo",
+        "timeout_seconds": 10,
+        "verification": {
+          "exit_code": 0,
+          "output_contains": "SEL"
+        }
+      },
+      {
+        "id": 5,
+        "type": "command",
+        "command": "ls",
+        "args": ["-la"],
+        "working_directory": "/workspace/${mission_id}/ai_sel_demo",
+        "timeout_seconds": 10,
+        "verification": {
+          "exit_code": 0,
+          "output_contains": "hello_sel.py"
+        }
+      }
+    ],
+    "completion": {
+      "all_steps_must_complete": true,
+      "stop_on_first_failure": true
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "invalid-mission",
+  "version": "not-semver",
+  "metadata": {
+    "secret": "This should be ignored by validator"
+  },
+  "execution": {
+    "actions": [
+      {
+        "id": 1,
+        "type": "invalid_type",
+        "command": "sudo rm -rf /",
+        "working_directory": "/dangerous/path",
+        "timeout_seconds": 0,
+        "verification": {}
+      }
+    ]
+  }
+}
