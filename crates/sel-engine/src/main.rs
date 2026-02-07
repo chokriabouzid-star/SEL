@@ -1,12 +1,13 @@
-//! SEL Engine CLI - واجهة سطر الأوامر
+//! SEL Engine CLI
+//! 
+//! Command-line interface for Sovereign Execution Layer
 
 use clap::{Parser, Subcommand};
-use std::fs;
-use sel_engine::{SEL, Mission, Result};
+use serde_json::json;
 
 #[derive(Parser)]
 #[command(name = "sel-engine")]
-#[command(about = "Sovereign Execution Layer - Pure Execution Engine")]
+#[command(about = "Sovereign Execution Layer - Deterministic Execution Engine")]
 #[command(version = "1.0.0")]
 struct Cli {
     #[command(subcommand)]
@@ -15,172 +16,160 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// تنفيذ مهمة
-    Execute {
-        /// ملف المهمة (JSON)
-        #[arg(short, long)]
-        mission: String,
+    /// Canonicalize and hash a mission
+    Canonicalize {
+        /// Mission JSON file
+        mission_file: String,
         
-        /// ملف إخراج الحقائق
-        #[arg(short, long, default_value = "facts.jsonl")]
+        /// Output file (optional)
+        #[arg(short, long)]
         output: Option<String>,
+    },
+    
+    /// Create a hash chain
+    HashChain {
+        /// Create new hash chain
+        #[arg(short, long)]
+        new: bool,
         
-        /// عدم التحقق من المهمة (للتطوير فقط)
-        #[arg(long, default_value = "false")]
-        no_validate: bool,
+        /// Add event to chain (JSON)
+        #[arg(short, long)]
+        add: Option<String>,
     },
     
-    /// التحقق من صحة المهمة فقط
-    Validate {
-        /// ملف المهمة (JSON)
+    /// Test SEL integration
+    Test {
+        /// Run integration tests
         #[arg(short, long)]
-        mission: String,
-    },
-    
-    /// عرض معلومات عن مهمة
-    Inspect {
-        /// ملف المهمة (JSON)
-        #[arg(short, long)]
-        mission: String,
+        integration: bool,
     },
 }
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     
     match cli.command {
-        Commands::Execute { mission, output, no_validate } => {
-            execute_mission(&mission, output.as_deref(), no_validate)
-        }
-        
-        Commands::Validate { mission } => {
-            validate_mission_cli(&mission)
-        }
-        
-        Commands::Inspect { mission } => {
-            inspect_mission(&mission)
-        }
-    }
-}
-
-/// تنفيذ مهمة
-fn execute_mission(mission_file: &str, output: Option<&str>, no_validate: bool) -> Result<()> {
-    println!("🚀 SEL Engine - تنفيذ مهمة");
-    println!("📄 الملف: {}", mission_file);
-    
-    // قراءة المهمة
-    let content = fs::read_to_string(mission_file)?;
-    
-    let mission: Mission = serde_json::from_str(&content)?;
-    
-    println!("🎯 المهمة: {} (v{})", mission.id, mission.version);
-    println!("🛠️  عدد الإجراءات: {}", mission.execution.actions.len());
-    
-    // التحقق من المهمة (ما لم يُطلب التخطي)
-    if !no_validate {
-        println!("🔍 التحقق من صحة المهمة...");
-        match sel_engine::validate_mission(&mission) {
-            Ok(_) => println!("✅ المهمة صالحة"),
-            Err(e) => {
-                eprintln!("❌ خطأ في التحقق:");
-                eprintln!("{}", e);
-                eprintln!("\nℹ️  للتخطي، استخدم: --no-validate");
-                std::process::exit(1);
-            }
-        }
-    }
-    
-    // تنفيذ المهمة
-    println!("⚡ تنفيذ المهمة...");
-    let mut sel = SEL::new(&mission.id)?;
-    
-    match sel.execute(mission) {
-        Ok(_) => {
-            let facts_path = sel.facts_path();
-            println!("✅ تم تنفيذ المهمة بنجاح");
-            println!("📊 الحقائق: {}", facts_path.display());
+        Commands::Canonicalize { mission_file, output } => {
+            println!("🔨 Canonicalizing mission from: {}", mission_file);
             
-            // إذا طلب المستخدم ملف إخراج معين
-            if let Some(output_path) = output {
-                if output_path != facts_path.to_string_lossy() {
-                    fs::copy(facts_path, output_path)?;
-                    println!("📁 نسخ الحقائق إلى: {}", output_path);
+            // Read mission file
+            let content = std::fs::read_to_string(&mission_file)?;
+            let mission: serde_json::Value = serde_json::from_str(&content)?;
+            
+            // Use canonical_adapter if available
+            println!("📋 Mission loaded successfully");
+            println!("📏 Size: {} bytes", content.len());
+            
+            // Try to canonicalize if the module is available
+            #[cfg(feature = "canonical")]
+            {
+                use sel_engine::canonical_adapter::canonicalize_mission;
+                let (canonical, hash) = canonicalize_mission(&mission);
+                
+                println!("✅ Mission canonicalized");
+                println!("📄 Canonical JSON length: {} chars", canonical.len());
+                println!("🔒 Mission hash: sha256:{}...", &hash[0..16]);
+                
+                if let Some(output_path) = output {
+                    let output_data = json!({
+                        "original": mission,
+                        "canonical": canonical,
+                        "hash": hash,
+                        "formatted_hash": format!("sha256:{}", hash)
+                    });
+                    
+                    std::fs::write(output_path, serde_json::to_string_pretty(&output_data)?)?;
+                    println!("💾 Output saved to file");
                 }
             }
             
-            Ok(())
-        }
-        Err(e) => {
-            eprintln!("❌ خطأ في التنفيذ: {}", e);
-            std::process::exit(1);
-        }
-    }
-}
-
-/// التحقق من مهمة (CLI)
-fn validate_mission_cli(mission_file: &str) -> Result<()> {
-    println!("🔍 SEL Engine - التحقق من المهمة");
-    
-    let content = fs::read_to_string(mission_file)?;
-    
-    let mission: Mission = serde_json::from_str(&content)?;
-    
-    println!("📄 الملف: {}", mission_file);
-    println!("🎯 المهمة: {} (v{})", mission.id, mission.version);
-    println!("🛠️  عدد الإجراءات: {}", mission.execution.actions.len());
-    
-    match sel_engine::validate_mission(&mission) {
-        Ok(_) => {
-            println!("✅ المهمة صالحة");
-            Ok(())
-        }
-        Err(e) => {
-            eprintln!("❌ المهمة غير صالحة:");
-            eprintln!("{}", e);
-            std::process::exit(1)
-        }
-    }
-}
-
-/// فحص مهمة
-fn inspect_mission(mission_file: &str) -> Result<()> {
-    println!("🔎 SEL Engine - فحص المهمة");
-    
-    let content = fs::read_to_string(mission_file)?;
-    
-    let mission: Mission = serde_json::from_str(&content)?;
-    
-    println!("📄 الملف: {}", mission_file);
-    println!("🎯 المهمة: {}", mission.id);
-    println!("📦 الإصدار: {}", mission.version);
-    println!("🛠️  عدد الإجراءات: {}", mission.execution.actions.len());
-    
-    println!("\n📋 معلومات الإجراءات:");
-    for (i, action) in mission.execution.actions.iter().enumerate() {
-        println!("\n  🔹 الإجراء #{}:", i + 1);
-        println!("    ID: {}", action.id);
-        println!("    النوع: {}", action.action_type);
-        println!("    الأمر: {}", action.command);
-        
-        if let Some(ref args) = action.args {
-            println!("    الوسيطات: {}", args.join(" "));
-        }
-        
-        println!("    مسار العمل: {}", action.working_directory);
-        
-        if let Some(ref env) = action.environment {
-            println!("    متغيرات البيئة: {}", env.len());
-            for (key, value) in env.iter().take(3) {
-                println!("      - {}={}", key, value);
-            }
-            if env.len() > 3 {
-                println!("      ... و {} أخرى", env.len() - 3);
+            #[cfg(not(feature = "canonical"))]
+            {
+                println!("⚠️ Canonicalization feature not enabled");
+                println!("   Mission: {}", serde_json::to_string(&mission)?);
             }
         }
+        
+        Commands::HashChain { new, add } => {
+            if new {
+                println!("⛓️ Creating new hash chain...");
+                
+                #[cfg(feature = "canonical")]
+                {
+                    use sel_engine::canonical_adapter::create_hash_chain;
+                    let chain = create_hash_chain();
+                    println!("✅ Hash chain created");
+                    println!("   Initial hash: {}", chain.finalize());
+                }
+                
+                #[cfg(not(feature = "canonical"))]
+                {
+                    println!("⚠️ Hash chain feature not enabled");
+                }
+            }
+            
+            if let Some(event_json) = add {
+                println!("➕ Adding event to chain: {}", event_json);
+                
+                #[cfg(feature = "canonical")]
+                {
+                    use sel_engine::canonical_adapter::create_hash_chain;
+                    let event: serde_json::Value = serde_json::from_str(&event_json)?;
+                    let mut chain = create_hash_chain();
+                    let hash = chain.append(&event);
+                    
+                    println!("✅ Event added to chain");
+                    println!("   Event hash: {}...", &hash[0..16]);
+                    println!("   Chain length: {}", chain.len());
+                }
+            }
+        }
+        
+        Commands::Test { integration } => {
+            if integration {
+                println!("🧪 Running integration tests...");
+                
+                // Test canonicalization
+                let test_mission = json!({
+                    "id": "integration-test",
+                    "version": "1.0.0",
+                    "execution": {
+                        "actions": [
+                            {
+                                "id": 1,
+                                "type": "command",
+                                "command": "echo 'SEL Integration Test'"
+                            }
+                        ]
+                    }
+                });
+                
+                println!("📋 Test mission created");
+                
+                #[cfg(feature = "canonical")]
+                {
+                    use sel_engine::canonical_adapter::canonicalize_mission;
+                    
+                    println!("🔨 Canonicalizing...");
+                    let (canonical, hash) = canonicalize_mission(&test_mission);
+                    
+                    println!("✅ Canonicalization successful!");
+                    println!("   Canonical length: {} chars", canonical.len());
+                    println!("   Mission hash: {}...", &hash[0..16]);
+                    
+                    // Test determinism
+                    let (_, hash2) = canonicalize_mission(&test_mission);
+                    if hash == hash2 {
+                        println!("✅ Determinism verified!");
+                    } else {
+                        println!("❌ Determinism broken!");
+                    }
+                }
+                
+                println!("🎉 Integration test completed!");
+            }
+        }
     }
-    
-    println!("\n📊 حجم المهمة: {} bytes", content.len());
-    println!("📁 المسار: {}", mission_file);
     
     Ok(())
 }

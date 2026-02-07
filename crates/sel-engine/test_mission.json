@@ -1,0 +1,16 @@
+{
+  "id": "cli-test-001",
+  "version": "1.0.0",
+  "metadata": {
+    "author": "SEL CLI Test"
+  },
+  "execution": {
+    "actions": [
+      {
+        "id": 1,
+        "type": "command",
+        "command": "echo 'Hello from SEL'"
+      }
+    ]
+  }
+}

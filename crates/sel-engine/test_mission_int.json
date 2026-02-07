@@ -1,0 +1,14 @@
+{
+  "id": "integration-verify",
+  "version": "1.0.0",
+  "execution": {
+    "actions": [
+      {
+        "id": 1,
+        "type": "test",
+        "command": "echo 'Sovereign Verification'",
+        "working_directory": "/tmp"
+      }
+    ]
+  }
+}
