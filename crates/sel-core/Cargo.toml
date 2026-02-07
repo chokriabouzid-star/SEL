@@ -1,0 +1,20 @@
+[package]
+name = "sel-core"
+version = "0.1.0"
+edition = "2021"
+description = "Sovereign Execution Layer - Core Canonicalization & Hash Engine"
+license = "MIT"
+authors = ["SEL Project"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "1.0"
+unicode-normalization = "0.1"
+
+[dev-dependencies]
+
+[lib]
+name = "sel_core"
+path = "src/lib.rs"

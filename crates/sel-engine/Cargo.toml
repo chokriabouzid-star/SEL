@@ -24,3 +24,5 @@ tempfile = "3.8"
 [[bin]]
 name = "sel-engine"
 path = "src/main.rs"
+serde_json = "1.0"
+sha2 = "0.10"
