@@ -2,7 +2,7 @@
 //! 
 //! 10-step canonicalization algorithm for deterministic JSON serialization
 
-use serde_json::{Value, Map};
+use serde_json::Value;
 
 /// Canonicalize JSON according to SEL specification
 pub fn canonicalize_json(value: &Value) -> String {

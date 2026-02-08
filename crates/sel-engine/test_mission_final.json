@@ -1,0 +1,19 @@
+{
+  "id": "final-test-mission",
+  "version": "1.0.0",
+  "metadata": {
+    "author": "SEL Team",
+    "description": "Final integration test mission"
+  },
+  "execution": {
+    "actions": [
+      {
+        "id": 1,
+        "type": "command",
+        "command": "echo 'Sovereign Execution Layer'",
+        "args": ["Hello", "World"],
+        "working_directory": "/tmp"
+      }
+    ]
+  }
+}
