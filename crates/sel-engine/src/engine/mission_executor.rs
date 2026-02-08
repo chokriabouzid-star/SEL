@@ -29,7 +29,7 @@ pub enum MissionExecutorError {
 
 /// Mission executor with isolated workspace
 pub struct MissionExecutor {
-    mission_id: String,
+    _mission_id: String,  // ✅ prefixed with _ to suppress warning
     workspace: PathBuf,
     facts_logger: FactsLogger,
     workspace_uuid: Uuid,
@@ -61,7 +61,7 @@ impl MissionExecutor {
         println!("📊 Facts log: {}", facts_log_name);
 
         Ok(MissionExecutor {
-            mission_id: mission_id.to_string(),
+            _mission_id: mission_id.to_string(),
             workspace,
             facts_logger,
             workspace_uuid,
@@ -157,8 +157,6 @@ impl Drop for MissionExecutor {
         if let Err(e) = self.cleanup() {
             eprintln!("⚠️ Warning: Failed to cleanup workspace {}: {}",
                      self.workspace.display(), e);
-            // Don't panic in drop - just log warning
-            // Workspace will be cleaned up manually or by system temp cleanup
         }
     }
 }
@@ -176,7 +174,6 @@ mod tests {
         assert!(executor.workspace_path().exists());
         assert!(executor.workspace_path().is_dir());
 
-        // Workspace should have UUID format
         let workspace_str = executor.workspace_path().to_str().unwrap();
         assert!(workspace_str.contains("sel-workspace-"));
         assert!(workspace_str.contains(executor.workspace_uuid().to_string().as_str()));
@@ -184,7 +181,6 @@ mod tests {
 
     #[test]
     fn test_workspace_isolation() {
-        // Create two executors - should have different workspaces
         let exec1 = MissionExecutor::new("mission-1").unwrap();
         let exec2 = MissionExecutor::new("mission-2").unwrap();
 
@@ -194,7 +190,6 @@ mod tests {
         assert_ne!(path1, path2, "Workspaces should be different");
         assert_ne!(exec1.workspace_uuid(), exec2.workspace_uuid());
 
-        // Both workspaces should exist
         assert!(path1.exists());
         assert!(path2.exists());
     }
