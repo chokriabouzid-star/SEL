@@ -1,0 +1,10 @@
+{
+  "name": "forbidden-test",
+  "actions": [
+    {
+      "type": "command",
+      "command": "rm",
+      "args": ["-rf", "/tmp/test"]
+    }
+  ]
+}

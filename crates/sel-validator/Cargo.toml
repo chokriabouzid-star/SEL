@@ -1,21 +1,17 @@
 [package]
 name = "sel-validator"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
-description = "SEL Validator - Mechanical Pattern Matcher"
-authors = ["Sovereign Execution Layer Project"]
-license = "MIT"
+description = "SEL Validator - Sovereign Validation Gateway"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
 thiserror = "1.0"
-regex = "1.0"
-semver = "1.0"
-clap = { version = "4.0", features = ["derive"] }
+hex = "0.4"  # أضف هذه المكتبة
 
-[dev-dependencies]
-lazy_static = "1.4"
-tempfile = "3.0"
-assert_cmd = "2.0"
-predicates = "3.0"
+[lib]
+name = "sel_validator"
+path = "src/lib.rs"

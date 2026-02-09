@@ -1,6 +1,21 @@
+//! SEL Validator - Sovereign Validation Gateway
+
 pub mod types;
 pub mod validator;
 
-pub use validator::engine::Validator;
-pub use types::core::Mission;
-pub use types::validation::{ValidationResult, Verdict, Violation};
+// Re-exports
+pub use types::{
+    ValidatedMission,
+    ExecutionCapabilities,
+    WorkspaceMode,
+    SemanticVersion,
+    VALIDATOR_VERSION,
+    ProofError,
+};
+
+pub use validator::{
+    Validator,
+    ValidationResult,
+    ValidationError,
+    ErrorType,
+};
