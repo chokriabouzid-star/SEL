@@ -1,42 +1,122 @@
 //! Mission Executor - Type-Safe Sovereign Execution
-//!
-//! Day 5 - Phase 1: Interface declaration only
 
 use uuid::Uuid;
-use crate::engine::{FactsLogger, LogicalClock};
+use std::path::PathBuf;
+use sel_validator::{ValidatedMission, ExecutionCapabilities, WorkspaceMode};
+use crate::engine::{
+    types::*,
+    workspace::Workspace,
+    FactsLogger,
+    LogicalClock,
+};
 
-/// Sovereign mission executor
 pub struct MissionExecutor {
-    /// Workspace UUID for isolation
-    workspace_uuid: Uuid,
-    
-    /// Facts logger
+    workspace: Workspace,
     facts_logger: FactsLogger,
-    
-    /// Logical clock for deterministic timestamps
     logical_clock: LogicalClock,
 }
 
 impl MissionExecutor {
-    /// Create new executor
-    pub fn new() -> Result<Self, crate::engine::ExecutorError> {
-        // Create workspace with unique UUID
-        let workspace_uuid = Uuid::new_v4();
+    pub fn new(mode: WorkspaceMode) -> Result<Self, ExecutorError> {
+        let workspace = Workspace::new(mode)?;
+        let facts_path = workspace.path().join("facts.jsonl");
+        let facts_logger = FactsLogger::new(facts_path)?;
+        let logical_clock = LogicalClock::new();
         
-        // TODO: Create workspace directory
-        // TODO: Initialize facts logger
-        // TODO: Initialize logical clock
-        
-        Ok(Self {
-            workspace_uuid,
-            facts_logger: FactsLogger::new(std::path::PathBuf::from("/tmp/facts.jsonl"))
-                .map_err(|e| crate::engine::ExecutorError::Other(e.to_string()))?,
-            logical_clock: LogicalClock::new(),
+        Ok(MissionExecutor {
+            workspace,
+            facts_logger,
+            logical_clock,
         })
     }
     
-    /// Execute a mission
-    pub fn execute(&mut self, mission_json: &str) -> Result<crate::engine::ExecutionReport, crate::engine::ExecutorError> {
-        todo!("Step 2: Mission execution")
+    pub fn workspace_uuid(&self) -> &Uuid {
+        self.workspace.uuid()
+    }
+    
+    pub fn workspace_path(&self) -> &std::path::Path {
+        self.workspace.path()
+    }
+    
+    pub fn facts_path(&self) -> PathBuf {
+        self.workspace.path().join("facts.jsonl")
+    }
+    
+    pub fn execute(
+        &mut self,
+        _validated: ValidatedMission
+    ) -> Result<ExecutionReport, ExecutorError> {
+        todo!("Step 2-3: Full execution pipeline")
+    }
+    
+    fn execute_action(
+        &mut self,
+        _action_index: usize,
+        _action: &serde_json::Value,
+        _capabilities: &ExecutionCapabilities,
+    ) -> Result<ActionResult, ExecutorError> {
+        todo!("Step 3: Action execution")
+    }
+    
+    fn enforce_capabilities(
+        &self,
+        _action: &serde_json::Value,
+        _capabilities: &ExecutionCapabilities,
+    ) -> Result<(), CapabilityViolation> {
+        todo!("Step 3: Capability enforcement")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_executor_creation() {
+        let executor = MissionExecutor::new(WorkspaceMode::ReadOnly);
+        assert!(executor.is_ok());
+    }
+
+    #[test]
+    fn test_executor_workspace_isolation() {
+        let exec1 = MissionExecutor::new(WorkspaceMode::ReadOnly).unwrap();
+        let exec2 = MissionExecutor::new(WorkspaceMode::ReadOnly).unwrap();
+        
+        assert_ne!(exec1.workspace_uuid(), exec2.workspace_uuid());
+        assert_ne!(exec1.workspace_path(), exec2.workspace_path());
+    }
+
+    #[test]
+    fn test_executor_facts_logger() {
+        let executor = MissionExecutor::new(WorkspaceMode::ReadOnly).unwrap();
+        
+        let facts_path = executor.facts_path();
+        assert!(facts_path.starts_with(executor.workspace_path()));
+        assert!(facts_path.ends_with("facts.jsonl"));
+    }
+
+    #[test]
+    fn test_executor_readonly_mode() {
+        let executor = MissionExecutor::new(WorkspaceMode::ReadOnly).unwrap();
+        assert!(executor.workspace_path().exists());
+        
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let metadata = std::fs::metadata(executor.workspace_path()).unwrap();
+            let mode = metadata.permissions().mode();
+            assert_eq!(mode & 0o777, 0o555);
+        }
+    }
+
+    #[test]
+    fn test_executor_cleanup() {
+        let path = {
+            let executor = MissionExecutor::new(WorkspaceMode::ReadOnly).unwrap();
+            executor.workspace_path().to_path_buf()
+        };
+        
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        assert!(!path.exists());
     }
 }

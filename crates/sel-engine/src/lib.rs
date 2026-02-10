@@ -15,3 +15,6 @@ pub use engine::{
     WorkspaceError,
     CapabilityViolation,
 };
+
+// Day 5 - Phase 1 exports
+pub use engine::workspace::Workspace;
