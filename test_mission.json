@@ -1,24 +1,11 @@
 {
-  "name": "test-sovereign-execution",
-  "metadata": {
-    "author": "SEL Team",
-    "date": "2026-02-08"
-  },
-  "actions": [
-    {
-      "type": "command",
-      "command": "echo",
-      "args": ["Hello from SEL with Sovereign DNA!"]
-    },
-    {
-      "type": "command",
-      "command": "date",
-      "args": []
-    },
-    {
-      "type": "command",
-      "command": "pwd",
-      "args": []
-    }
-  ]
+  "mission": {
+    "name": "اختبار عربي",
+    "actions": [
+      {
+        "cmd": "echo",
+        "args": ["مرحباً بالعالم العربي!"]
+      }
+    ]
+  }
 }

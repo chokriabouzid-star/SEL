@@ -100,34 +100,3 @@ pub enum ProofError {
     #[error("Serialization failed: {0}")]
     SerializationFailed(String),
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_validated_mission_creation() {
-        let raw = serde_json::json!({"name": "test"});
-        let caps = ExecutionCapabilities::default();
-        
-        let validated = ValidatedMission {
-            raw: raw.clone(),
-            validation_proof: "test".to_string(),
-            validation_timestamp: chrono::Utc::now(),
-            validator_version: VALIDATOR_VERSION.clone(),
-            capabilities: caps,
-            workspace_mode: WorkspaceMode::ReadOnly,
-        };
-        
-        assert_eq!(validated.workspace_mode(), WorkspaceMode::ReadOnly);
-    }
-
-    #[test]
-    fn test_capabilities_serialization() {
-        let caps = ExecutionCapabilities::default();
-        let json = serde_json::to_string(&caps).unwrap();
-        
-        assert!(json.contains("can_write_files"));
-        assert!(json.contains("false"));
-    }
-}

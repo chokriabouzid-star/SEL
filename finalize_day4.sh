@@ -19,7 +19,7 @@ cargo test --release --workspace
 # Test CLI
 echo ""
 echo "🖥️  Testing CLI..."
-./crates/sel-engine/target/release/sel-engine --help | grep -q "validate" && echo "  ✅ Validate command present"
+./target/release/sel-engine --help | grep -q "validate" && echo "  ✅ Validate command present"
 
 # Create completion report
 cat > DAY4_COMPLETION_REPORT.md << 'REPORT'

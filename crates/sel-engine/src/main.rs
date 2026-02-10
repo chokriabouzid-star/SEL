@@ -1,3 +1,5 @@
+//! SEL Engine CLI
+
 use clap::{Parser, Subcommand};
 use sel_core::{canonicalize_json, HashChain};
 use sel_validator::{Validator, ValidationResult};
@@ -5,7 +7,9 @@ use serde_json::{Value, json};
 use std::fs;
 
 #[derive(Parser)]
-#[command(author, version, about = "Sovereign Execution Layer", long_about = None)]
+#[command(name = "sel-engine")]
+#[command(about = "Sovereign Execution Layer - Deterministic Execution Engine")]
+#[command(version = "1.0.0")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -16,15 +20,15 @@ enum Commands {
     /// Canonicalize JSON (Day 2)
     Canonicalize {
         /// JSON file to canonicalize
-        file: String,
+        mission_file: String,
     },
-    
+
     /// Create hash chain (Day 2)
     HashChain {
         /// JSON files to add to chain
         files: Vec<String>,
     },
-    
+
     /// Validate mission (Day 4)
     Validate {
         /// Mission JSON file
@@ -34,7 +38,7 @@ enum Commands {
         #[arg(short, long)]
         verbose: bool,
     },
-    
+
     /// Test SEL components
     Test {
         /// Component to test (all, canonical, hash, validate)
@@ -47,12 +51,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Canonicalize { file } => {
+        Commands::Canonicalize { mission_file } => {
             println!("🔤 SEL Canonical JSON (Day 2)");
-            println!("📄 File: {}", file);
+            println!("📄 File: {}", mission_file);
             println!("{}", "=".repeat(50));
             
-            let content = fs::read_to_string(&file)?;
+            let content = fs::read_to_string(&mission_file)?;
             let json: Value = serde_json::from_str(&content)?;
             
             let canonical = canonicalize_json(&json);
@@ -83,7 +87,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!();
             println!("📊 Summary:");
             println!("  • Files processed: {}", files.len());
-            println!("  • Final hash: {}", chain.append(&json!("end")));
+            if let Some(final_hash) = chain.final_hash() {
+                println!("  • Final hash: {}", final_hash);
+            }
         }
         
         Commands::Validate { mission_file, verbose } => {
@@ -105,15 +111,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("📋 Summary:");
                     println!("  • Validator: {}", validated.validator_version());
                     println!("  • Mode: {:?}", validated.workspace_mode());
-                    println!("  • Timestamp: {}", validated.validated_at());
                     
                     if verbose {
                         println!();
                         println!("🔐 Details:");
                         println!("  • Validation Proof: {}", validated.validation_proof());
-                        println!("  • Allowed Commands: {:?}", validated.capabilities().allowed_commands);
-                        println!("  • Max Execution Time: {} seconds", 
-                                 validated.capabilities().max_execution_time.as_secs());
+                        let caps = validated.capabilities();
+                        println!("  • Allowed Commands: {:?}", caps.allowed_commands);
+                        println!("  • Allowed Paths: {:?}", caps.allowed_paths);
+                        println!("  • Max Execution Time: {} seconds", caps.max_execution_time.as_secs());
+                        println!("  • Timestamp: {}", validated.validated_at());
                     }
                 }
                 
@@ -151,17 +158,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("Running all tests...");
                     
                     // Test canonical JSON
-                    println!("\n1️⃣  Testing canonical JSON...");
+                    println!("\n1. Testing canonical JSON...");
                     let test_json = json!({
                         "name": "test",
                         "actions": [{"type": "command", "command": "echo", "args": ["hello"]}]
                     });
                     let canonical = canonicalize_json(&test_json);
-                    println!("   📝 Result: {}", canonical);
+                    println!("   Result: {}", canonical);
                     println!("   ✅ Canonical test passed");
                     
                     // Test hash chain
-                    println!("\n2️⃣  Testing hash chain...");
+                    println!("\n2. Testing hash chain...");
                     let mut chain = HashChain::new();
                     let data1 = json!({"a": 1});
                     let data2 = json!({"b": 2});
@@ -169,12 +176,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let hash1 = chain.append(&data1);
                     let hash2 = chain.append(&data2);
                     
-                    println!("   🔗 Hash 1: {}", hash1);
-                    println!("   🔗 Hash 2: {}", hash2);
+                    println!("   Hash 1: {}", hash1);
+                    println!("   Hash 2: {}", hash2);
                     println!("   ✅ Hash chain test passed");
                     
                     // Test validator
-                    println!("\n3️⃣  Testing validator...");
+                    println!("\n3. Testing validator...");
                     
                     // Test valid mission
                     let valid_mission = json!({
@@ -208,18 +215,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 
                 "canonical" => {
-                    println!("\n1️⃣  Testing canonical JSON...");
+                    println!("\n1. Testing canonical JSON...");
                     let test_json = json!({
                         "name": "test",
                         "actions": [{"type": "command", "command": "echo", "args": ["hello"]}]
                     });
                     let canonical = canonicalize_json(&test_json);
-                    println!("   📝 Result: {}", canonical);
+                    println!("   Result: {}", canonical);
                     println!("   ✅ Canonical test passed");
                 }
                 
                 "hash" => {
-                    println!("\n2️⃣  Testing hash chain...");
+                    println!("\n2. Testing hash chain...");
                     let mut chain = HashChain::new();
                     let data1 = json!({"a": 1});
                     let data2 = json!({"b": 2});
@@ -227,13 +234,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let hash1 = chain.append(&data1);
                     let hash2 = chain.append(&data2);
                     
-                    println!("   🔗 Hash 1: {}", hash1);
-                    println!("   🔗 Hash 2: {}", hash2);
+                    println!("   Hash 1: {}", hash1);
+                    println!("   Hash 2: {}", hash2);
                     println!("   ✅ Hash chain test passed");
                 }
                 
                 "validate" => {
-                    println!("\n3️⃣  Testing validator...");
+                    println!("\n3. Testing validator...");
                     
                     // Test valid mission
                     let valid_mission = json!({

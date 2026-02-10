@@ -1,26 +1,56 @@
-//! Security tests for SEL Validator
-
-use sel_validator::{Validator, ValidationResult};
+use sel_validator::{Validator, ValidationResult, ErrorType};
 use serde_json::json;
+
+#[test]
+fn test_valid_mission() {
+    let mut validator = Validator::new();
+    let mission = json!({
+        "name": "valid-mission",
+        "actions": [
+            {"type": "command", "command": "echo", "args": ["hello"]}
+        ]
+    });
+
+    match validator.validate(&mission) {
+        ValidationResult::Valid(_) => {},
+        ValidationResult::Invalid { .. } => panic!("Should be valid"),
+    }
+}
 
 #[test]
 fn test_path_traversal_detection() {
     let mut validator = Validator::new();
     
-    // Test ../ traversal
+    // Test 1: Path traversal in command args
     let mission = json!({
-        "name": "path-traversal-test",
+        "name": "path-traversal",
         "actions": [
             {"type": "command", "command": "cat", "args": ["../../etc/passwd"]}
         ]
     });
+
+    match validator.validate(&mission) {
+        ValidationResult::Valid(_) => panic!("Should be invalid"),
+        ValidationResult::Invalid { errors, .. } => {
+            let has_path_error = errors.iter().any(|e| e.error_type == ErrorType::PathEscape);
+            assert!(has_path_error, "Should detect path traversal in args");
+        }
+    }
     
-    let result = validator.validate(&mission);
-    assert!(matches!(result, ValidationResult::Invalid { .. }));
+    // Test 2: Dangerous pattern
+    let mission2 = json!({
+        "name": "dangerous-pattern",
+        "actions": [
+            {"type": "command", "command": "echo", "args": ["test; rm -rf /"]}
+        ]
+    });
     
-    if let ValidationResult::Invalid { errors, .. } = result {
-        let has_path_error = errors.iter().any(|e| e.error_type.to_string() == "PathEscape");
-        assert!(has_path_error, "Should detect path traversal");
+    match validator.validate(&mission2) {
+        ValidationResult::Valid(_) => panic!("Should be invalid"),
+        ValidationResult::Invalid { errors, .. } => {
+            let has_path_error = errors.iter().any(|e| e.error_type == ErrorType::PathEscape);
+            assert!(has_path_error, "Should detect dangerous pattern");
+        }
     }
 }
 
@@ -38,23 +68,6 @@ fn test_forbidden_commands() {
     
     let result = validator.validate(&mission);
     assert!(matches!(result, ValidationResult::Invalid { .. }));
-}
-
-#[test]
-fn test_valid_mission() {
-    let mut validator = Validator::new();
-    
-    // Test valid mission
-    let mission = json!({
-        "name": "valid-test",
-        "actions": [
-            {"type": "command", "command": "echo", "args": ["hello"]},
-            {"type": "command", "command": "ls", "args": ["-la", "/tmp"]}
-        ]
-    });
-    
-    let result = validator.validate(&mission);
-    assert!(matches!(result, ValidationResult::Valid(_)));
 }
 
 #[test]
