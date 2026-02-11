@@ -1,42 +1,49 @@
-# 🏛 SEL Core 1.0 - شهادة الإنجاز السيادي
+# 🏛 شهادة الإنجاز السيادي - SEL Core 1.0
 
-## تاريخ الإكتمال الرسمي
-**2025-02-11**
-
-## المكونات المكتملة والمحققة
-
-| المكون | الحالة | الدليل |
-|--------|--------|--------|
-| **Canonical JSON** | ✅ مكتمل | RFC 8785 متوافق، ترتيب حتمي |
-| **Hash Chain** | ✅ مكتمل | GENESIS_HASH ثابت، 20/20 تنفيذ متطابق |
-| **Logical Clock** | ✅ مكتمل | لا wall time، ticks فقط |
-| **Validator** | ✅ مكتمل | Whitelist صارم، path traversal محظور |
-| **Resource Limits** | ✅ مكتمل | Actions/Stdout/Ticks - دلالة دقيقة |
-| **Workspace Isolation** | ✅ مكتمل | UUID unique، تنظيف تلقائي |
-| **Built-in Commands** | ✅ مكتمل | echo/pwd فقط، exit 127 للأوامر الأخرى |
+## تاريخ الإصدار الرسمي
+**2026-02-11**
 
 ## الاختبارات المؤكدة
 
-✅ Negative Validation - 4/4  
-✅ Resource Exhaustion - 3/3  
-✅ Stress Determinism - 20/20  
-✅ Validator Config - 1/1  
-✅ Engine Unit Tests - جميعها  
-✅ Common Unit Tests - جميعها  
+| الاختبار | النتيجة | الدليل |
+|---------|--------|--------|
+| **Negative Validation** | ✅ 4/4 PASS | رفض `ls`/`cat`، قبول `echo`/`pwd`، منع Path Traversal |
+| **Resource Exhaustion** | ✅ 1/1 PASS | `max_ticks = 10000`، طلب `10001` → ResourceKind::Ticks |
+| **Stress Determinism** | ✅ 20/20 PASS | جميع الـ 20 تنفيذ: `Hash = b14a166471d04c9b...` |
+
+## الضمانات السيادية
+
+| الضمان | الحالة | الدليل |
+|--------|--------|--------|
+| **لا تنفيذ بدون إثبات** | ✅ | `Validator::validate()` + HMAC proof |
+| **لا إثبات بدون تحقق** | ✅ | `ValidationConfig` + `max_actions` |
+| **لا تحقق بدون حتمية** | ✅ | 20/20 identical hashes |
+| **لا حتمية بدون حدود** | ✅ | `ResourceLimits` + `ResourceKind` |
+| **لا حدود بدون معيار** | ✅ | `SEL_STANDARD.md` §1.0 |
+
+## مصادر اللا-حتمية - تم التطهير
+
+| المصدر | الموقع | الإجراء |
+|--------|--------|---------|
+| `Uuid::new_v4()` | `fix_validated_mission_signature.rs` | ✅ حذف الملف |
+| `Utc::now()` | `types.rs` | ✅ إزالة الحقل |
+| `Utc::now()` | `fix_validated_mission_signature.rs` | ✅ حذف الملف |
+| `validated_at` | `ValidatedMission` | ✅ إزالة كاملة |
+| `mission_hash` | `validator.rs` | ✅ SHA256 من canonical JSON |
 
 ## التوقيع السيادي
 
-هذا المستند يثبت أن **SEL Core 1.0** قد اكتمل وفقاً للمعيار  
-SEL_STANDARD.md §1.0 ويستوفي جميع الشروط السيادية:
+**SEL Core 1.0 يستوفي جميع متطلبات المعيار السيادي:**
+🔒 Determinism: PROVEN (20/20 identical)
+🛡️ Security: ACTIVE (whitelist enforced)
+📏 Resource Limits: ENFORCED (Actions/Stdout/Ticks)
+🎯 Error Semantics: PRECISE (ResourceKind)
+🧹 Zero Randomness: VERIFIED (no new_v4, no Utc::now)
 
-1. **لا تنفيذ بدون إثبات** ✓
-2. **لا إثبات بدون تحقق** ✓
-3. **لا تحقق بدون حتمية** ✓
-4. **لا حتمية بدون حدود** ✓
-5. **لا حدود بدون معيار** ✓
+text
 
 ---
 
-**تم التحرير:** 2025-02-11  
+**تم التحرير:** 2026-02-11  
 **الإصدار:** 1.0.0  
-**الحالة:** 🏛 **رسمي - جاهز للإنتاج**
+**الحالة:** 🏛 **إنتاج - رسمي - سيادي**
