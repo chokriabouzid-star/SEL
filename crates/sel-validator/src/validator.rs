@@ -1,316 +1,174 @@
-//! Sovereign Validator - The Gatekeeper
+//! # Sovereign Validator Implementation
+//! SEL Core 1.0 - FULLY DETERMINISTIC
+//! 🔴 NO Utc::now(), NO unwrap, NO panic
 
-use std::collections::HashSet;
-use std::time::Duration;
-use serde_json::Value;
-use crate::types::*;
+use serde_json::{Value, from_str};
+use sel_common::{SovereignError, SelResult, canonicalize_json, ResourceKind};
+use sha2::{Sha256, Digest};
 
-/// Validation error
+use crate::{
+    types::{
+        ValidatedMission,
+        ExecutionCapabilities,
+        ValidatedAction,
+    },
+    crypto_authority::CryptoAuthority,
+    rules::{validate_security_rules, SecurityViolation},
+};
+
+const CORE_ALLOWED_COMMANDS: [&str; 2] = ["echo", "pwd"];
+
 #[derive(Debug, Clone)]
-pub struct ValidationError {
-    pub error_type: ErrorType,
-    pub message: String,
-    pub location: Option<String>,
+pub struct ValidationConfig {
+    pub max_actions: usize,
+    pub strict_mode: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ErrorType {
-    SchemaViolation,
-    ForbiddenCommand,
-    PathEscape,
-    InvalidCapability,
-}
-
-impl std::fmt::Display for ErrorType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ErrorType::SchemaViolation => write!(f, "SchemaViolation"),
-            ErrorType::ForbiddenCommand => write!(f, "ForbiddenCommand"),
-            ErrorType::PathEscape => write!(f, "PathEscape"),
-            ErrorType::InvalidCapability => write!(f, "InvalidCapability"),
+impl Default for ValidationConfig {
+    fn default() -> Self {
+        Self {
+            max_actions: 1000,
+            strict_mode: true,
         }
     }
 }
 
-/// Validation result
-#[derive(Debug)]
-pub enum ValidationResult {
-    Valid(ValidatedMission),
-    Invalid {
-        errors: Vec<ValidationError>,
-        suggestions: Vec<String>,
-    },
-}
-
-/// Sovereign Validator
 pub struct Validator {
-    forbidden_commands: HashSet<String>,
-    _allowed_paths: HashSet<String>,
-    capabilities: ExecutionCapabilities,
+    pub config: ValidationConfig,
+    crypto: CryptoAuthority,
 }
 
 impl Validator {
-    pub fn new() -> Self {
-        let mut forbidden = HashSet::new();
-        forbidden.insert("rm".to_string());
-        forbidden.insert("dd".to_string());
-        forbidden.insert("mkfs".to_string());
-        forbidden.insert("format".to_string());
-        forbidden.insert("shutdown".to_string());
-        forbidden.insert("halt".to_string());
-        forbidden.insert("poweroff".to_string());
-        
-        let mut allowed_paths = HashSet::new();
-        allowed_paths.insert("/tmp".to_string());
-        allowed_paths.insert("/home".to_string());
-        allowed_paths.insert("/var/tmp".to_string());
-        
-        Self {
-            forbidden_commands: forbidden,
-            _allowed_paths: allowed_paths,
-            capabilities: ExecutionCapabilities {
-                allowed_commands: vec!["echo".to_string(), "ls".to_string(), "cat".to_string()],
-                allowed_paths: vec!["/tmp".to_string(), "/home".to_string()],
-                max_execution_time: Duration::from_secs(30),
-                workspace_mode: WorkspaceMode::Strict,
-            },
-        }
+    pub fn new(config: ValidationConfig) -> SelResult<Self> {
+        Ok(Self {
+            config,
+            crypto: CryptoAuthority::new_hmac()?,
+        })
     }
     
-    pub fn validate(&mut self, mission: &Value) -> ValidationResult {
-        let mut errors = Vec::new();
-        let mut suggestions = Vec::new();
+    pub fn validate(&self, mission_json: &str) -> SelResult<ValidatedMission> {
+        // Canonicalization
+        let canonical = canonicalize_json(mission_json)?;
         
-        // Validate mission structure
-        if !mission.is_object() {
-            errors.push(ValidationError {
-                error_type: ErrorType::SchemaViolation,
-                message: "Mission must be a JSON object".to_string(),
-                location: None,
-            });
-            return ValidationResult::Invalid { errors, suggestions };
+        // Generate deterministic mission hash from canonical JSON
+        let mut hasher = Sha256::new();
+        hasher.update(canonical.as_bytes());
+        let mission_hash = hex::encode(hasher.finalize());
+        
+        let parsed: Value = from_str(&canonical)
+            .map_err(|e| SovereignError::InvalidMissionFormat(e.to_string()))?;
+        
+        let actions = self.extract_actions(&parsed)?;
+        
+        // Command whitelist - IMMEDIATE REJECT
+        for action in &actions {
+            if !CORE_ALLOWED_COMMANDS.contains(&action.command.as_str()) {
+                return Err(SovereignError::CapabilityViolation(
+                    format!("Command not allowed in SEL Core 1.0: '{}'. Only 'echo' and 'pwd' are permitted.", 
+                        action.command)
+                ));
+            }
         }
         
-        // Validate name field
-        if let Some(name) = mission.get("name") {
-            if !name.is_string() {
-                errors.push(ValidationError {
-                    error_type: ErrorType::SchemaViolation,
-                    message: "Mission name must be a string".to_string(),
-                    location: Some("name".to_string()),
-                });
-            }
-        } else {
-            errors.push(ValidationError {
-                error_type: ErrorType::SchemaViolation,
-                message: "Mission must have a 'name' field".to_string(),
-                location: None,
-            });
-        }
-        
-        // Validate actions
-        if let Some(actions) = mission.get("actions") {
-            if !actions.is_array() {
-                errors.push(ValidationError {
-                    error_type: ErrorType::SchemaViolation,
-                    message: "Actions must be an array".to_string(),
-                    location: Some("actions".to_string()),
-                });
-            } else if let Some(arr) = actions.as_array() {
-                for (i, action) in arr.iter().enumerate() {
-                    self.validate_action(action, i, &mut errors);
-                }
-            }
-        } else {
-            errors.push(ValidationError {
-                error_type: ErrorType::SchemaViolation,
-                message: "Mission must have 'actions' field".to_string(),
-                location: None,
+        // Enforce max_actions
+        if actions.len() > self.config.max_actions {
+            return Err(SovereignError::ResourceExhaustion {
+                kind: ResourceKind::Actions,
+                limit: self.config.max_actions as u64,
+                requested: actions.len() as u64,
             });
         }
         
-        // If errors, return invalid
-        if !errors.is_empty() {
-            suggestions.push("Check mission structure against schema".to_string());
-            suggestions.push("Use only allowed commands".to_string());
-            suggestions.push("Avoid path traversal attempts".to_string());
-            return ValidationResult::Invalid { errors, suggestions };
+        // Security rules
+        if self.config.strict_mode {
+            if let Some(violation) = validate_security_rules(&actions) {
+                return match violation {
+                    SecurityViolation::PathTraversal(path) => 
+                        Err(SovereignError::WorkspaceViolation(path)),
+                    SecurityViolation::ForbiddenCommand(cmd) =>
+                        Err(SovereignError::CapabilityViolation(
+                            format!("Security violation: command '{}' is forbidden", cmd)
+                        )),
+                    SecurityViolation::DangerousPattern(pattern) =>
+                        Err(SovereignError::ValidationFailed(
+                            format!("Dangerous pattern detected: {}", pattern)
+                        )),
+                };
+            }
         }
         
-        // Generate validation proof
-        let proof = match self.generate_proof(mission) {
-            Ok(p) => p,
-            Err(e) => {
-                errors.push(ValidationError {
-                    error_type: ErrorType::SchemaViolation,
-                    message: format!("Failed to generate validation proof: {}", e),
-                    location: None,
-                });
-                return ValidationResult::Invalid { errors, suggestions };
-            }
-        };
+        // Generate cryptographic proof
+        let proof = self.crypto.sign(&canonical)?;
         
-        // Create validated mission
-        let validated = ValidatedMission::new(
-            self.capabilities.clone(),
+        // Create ValidatedMission with deterministic hash
+        let mut validated = ValidatedMission::new_with_actions(
+            ExecutionCapabilities::default(),
             proof,
+            actions,
         );
         
-        ValidationResult::Valid(validated)
+        validated.set_mission_hash(mission_hash);
+        
+        Ok(validated)
     }
     
-    fn validate_action(&self, action: &Value, index: usize, errors: &mut Vec<ValidationError>) {
-        if !action.is_object() {
-            errors.push(ValidationError {
-                error_type: ErrorType::SchemaViolation,
-                message: format!("Action {} must be an object", index),
-                location: Some(format!("actions[{}]", index)),
-            });
-            return;
-        }
+    fn extract_actions(&self, parsed: &Value) -> SelResult<Vec<ValidatedAction>> {
+        let actions_array = parsed.get("actions")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| SovereignError::InvalidMissionFormat(
+                "Missing or invalid 'actions' array".to_string()
+            ))?;
         
-        // Check action type
-        if let Some(action_type) = action.get("type") {
-            if let Some(type_str) = action_type.as_str() {
-                match type_str {
-                    "command" => self.validate_command_action(action, index, errors),
-                    _ => {
-                        errors.push(ValidationError {
-                            error_type: ErrorType::SchemaViolation,
-                            message: format!("Unknown action type: {}", type_str),
-                            location: Some(format!("actions[{}].type", index)),
-                        });
-                    }
-                }
-            } else {
-                errors.push(ValidationError {
-                    error_type: ErrorType::SchemaViolation,
-                    message: "Action type must be a string".to_string(),
-                    location: Some(format!("actions[{}].type", index)),
-                });
-            }
-        } else {
-            errors.push(ValidationError {
-                error_type: ErrorType::SchemaViolation,
-                message: "Action must have 'type' field".to_string(),
-                location: Some(format!("actions[{}]", index)),
-            });
-        }
-    }
-    
-    fn validate_command_action(&self, action: &Value, index: usize, errors: &mut Vec<ValidationError>) {
-        // Check command field
-        if let Some(command) = action.get("command") {
-            if let Some(cmd_str) = command.as_str() {
-                if self.forbidden_commands.contains(cmd_str) {
-                    errors.push(ValidationError {
-                        error_type: ErrorType::ForbiddenCommand,
-                        message: format!("Forbidden command: {}", cmd_str),
-                        location: Some(format!("actions[{}].command", index)),
-                    });
-                }
-            } else {
-                errors.push(ValidationError {
-                    error_type: ErrorType::SchemaViolation,
-                    message: "Command must be a string".to_string(),
-                    location: Some(format!("actions[{}].command", index)),
-                });
-            }
-        } else {
-            errors.push(ValidationError {
-                error_type: ErrorType::SchemaViolation,
-                message: "Command action must have 'command' field".to_string(),
-                location: Some(format!("actions[{}]", index)),
-            });
-        }
+        let mut actions = Vec::with_capacity(actions_array.len());
         
-        // Check args (optional) - Add path traversal detection
-        if let Some(args) = action.get("args") {
-            if !args.is_array() {
-                errors.push(ValidationError {
-                    error_type: ErrorType::SchemaViolation,
-                    message: "Args must be an array".to_string(),
-                    location: Some(format!("actions[{}].args", index)),
-                });
-            } else if let Some(arr) = args.as_array() {
-                for (arg_idx, arg) in arr.iter().enumerate() {
-                    if let Some(arg_str) = arg.as_str() {
-                        self.detect_path_traversal(arg_str, index, arg_idx, errors);
-                    }
-                }
-            }
-        }
-    }
-    
-    fn detect_path_traversal(&self, arg: &str, action_idx: usize, arg_idx: usize, errors: &mut Vec<ValidationError>) {
-        // Detect common path traversal patterns
-        let dangerous_patterns = [
-            "../",          // Directory traversal
-            "..\\",         // Windows directory traversal
-            "/etc/",        // System directories
-            "/bin/",
-            "/sbin/",
-            "/usr/bin/",
-            "/root/",
-            "/var/log/",
-            "~/.ssh/",      // SSH keys
-            "~/.bashrc",    // Shell configs
-            "*",            // Wildcards
-            "?",            // Wildcards
-            "|",            // Pipe
-            "&",            // Background process
-            ";",            // Command separator
-            "`",            // Command substitution
-            "$(",           // Command substitution
-        ];
-        
-        for pattern in dangerous_patterns.iter() {
-            if arg.contains(pattern) {
-                errors.push(ValidationError {
-                    error_type: ErrorType::PathEscape,
-                    message: format!("Potential path traversal detected: '{}' in argument", pattern),
-                    location: Some(format!("actions[{}].args[{}]", action_idx, arg_idx)),
-                });
-                break;
-            }
-        }
-        
-        // Detect absolute paths outside allowed directories
-        if arg.starts_with('/') {
-            let mut allowed = false;
-            for allowed_path in &self.capabilities.allowed_paths {
-                if arg.starts_with(allowed_path) {
-                    allowed = true;
-                    break;
-                }
-            }
+        for (i, action_val) in actions_array.iter().enumerate() {
+            let cmd = action_val.get("command")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| SovereignError::InvalidMissionFormat(
+                    format!("Action {}: missing 'command'", i)
+                ))?;
             
-            if !allowed {
-                errors.push(ValidationError {
-                    error_type: ErrorType::PathEscape,
-                    message: format!("Access to path '{}' not allowed", arg),
-                    location: Some(format!("actions[{}].args[{}]", action_idx, arg_idx)),
-                });
-            }
+            let args = action_val.get("args")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str())
+                        .map(|s| s.to_string())
+                        .collect()
+                })
+                .unwrap_or_default();
+            
+            actions.push(ValidatedAction {
+                command: cmd.to_string(),
+                args,
+            });
         }
+        
+        Ok(actions)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_validator_creation() {
+        let config = ValidationConfig::default();
+        let validator = Validator::new(config);
+        assert!(validator.is_ok());
     }
     
-    fn generate_proof(&self, mission: &Value) -> Result<String, ProofError> {
-        use sha2::{Sha256, Digest};
+    #[test]
+    fn test_deterministic_mission_hash() {
+        let validator = Validator::new(ValidationConfig::default()).unwrap();
         
-        // Serialize mission
-        let serialized = serde_json::to_vec(mission)
-            .map_err(|e| ProofError::SerializationFailed(e.to_string()))?;
+        let mission1 = r#"{"actions":[{"command":"echo","args":["test"]}]}"#;
+        let mission2 = r#"{"actions":[{"command":"echo","args":["test"]}]}"#;
         
-        // Create hash
-        let mut hasher = Sha256::new();
-        hasher.update(&serialized);
-        hasher.update(self.capabilities.max_execution_time.as_secs().to_be_bytes());
-        let result = hasher.finalize();
+        let validated1 = validator.validate(mission1).unwrap();
+        let validated2 = validator.validate(mission2).unwrap();
         
-        // Format as hex
-        let proof = format!("hmac-sha256:{}", hex::encode(result));
-        
-        Ok(proof)
+        assert_eq!(validated1.mission_hash(), validated2.mission_hash());
     }
 }

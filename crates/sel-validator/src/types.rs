@@ -1,60 +1,57 @@
-//! Day 4 Types - Sovereign Validation
+//! # SEL Validator Types
+//! SEL Core 1.0 - FULLY DETERMINISTIC
+//! 🔴 NO Utc::now(), NO randomness
 
-use serde::{Deserialize, Serialize};
-use std::time::Duration;
-use chrono::{DateTime, Utc};
+use serde::{Serialize, Deserialize};
+use sel_common::SEL_CORE_VERSION;
 
-/// Semantic version for validator
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct SemanticVersion {
-    pub major: u32,
-    pub minor: u32,
-    pub patch: u32,
+/// A validated action that passed sovereign validation
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValidatedAction {
+    pub command: String,
+    pub args: Vec<String>,
 }
 
-impl std::fmt::Display for SemanticVersion {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
-    }
-}
+/// Cryptographic proof of validation
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValidationProof(pub String);
 
-impl SemanticVersion {
-    pub const fn new(major: u32, minor: u32, patch: u32) -> Self {
-        Self { major, minor, patch }
-    }
-}
-
-/// Current validator version
-pub const VALIDATOR_VERSION: SemanticVersion = SemanticVersion::new(1, 0, 0);
-
-/// Workspace execution mode
+/// Workspace access mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WorkspaceMode {
-    /// Strict sandbox
-    Strict,
-    /// Permissive mode (for development)
-    Permissive,
-    /// Read-only operations
     ReadOnly,
+    ReadWrite,
 }
 
-/// Execution capabilities
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Execution capabilities granted to a validated mission
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ExecutionCapabilities {
-    pub allowed_commands: Vec<String>,
-    pub allowed_paths: Vec<String>,
-    pub max_execution_time: Duration,
     pub workspace_mode: WorkspaceMode,
+    pub allowed_commands: Vec<String>,
+    pub max_actions: Option<usize>,
 }
 
-/// Validated mission with proof
+impl Default for ExecutionCapabilities {
+    fn default() -> Self {
+        Self {
+            workspace_mode: WorkspaceMode::ReadOnly,
+            allowed_commands: vec!["echo".to_string(), "pwd".to_string()],
+            max_actions: Some(1000),
+        }
+    }
+}
+
+/// A mission that has passed sovereign validation
+/// 🔴 DETERMINISTIC: No timestamps, no randomness
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidatedMission {
-    validator_version: SemanticVersion,
-    validation_proof: String,
-    workspace_mode: WorkspaceMode,
-    capabilities: ExecutionCapabilities,
-    validated_at: DateTime<Utc>,
+    pub core_version: String,
+    pub capabilities: ExecutionCapabilities,
+    pub validation_proof: ValidationProof,
+    /// 🔴 REMOVED: validated_at - كان يستخدم Utc::now() وغير حتمي
+    pub validator_version: String,
+    pub actions: Vec<ValidatedAction>,
+    pub mission_hash: String,
 }
 
 impl ValidatedMission {
@@ -63,40 +60,50 @@ impl ValidatedMission {
         proof: String,
     ) -> Self {
         Self {
-            validator_version: VALIDATOR_VERSION,
-            validation_proof: proof,
-            workspace_mode: capabilities.workspace_mode,
+            core_version: SEL_CORE_VERSION.to_string(),
             capabilities,
-            validated_at: Utc::now(),
+            validation_proof: ValidationProof(proof),
+            validator_version: crate::VALIDATOR_VERSION.to_string(),
+            actions: Vec::new(),
+            mission_hash: String::new(),
         }
     }
-
-    pub fn validator_version(&self) -> &SemanticVersion {
+    
+    pub fn new_with_actions(
+        capabilities: ExecutionCapabilities,
+        proof: String,
+        actions: Vec<ValidatedAction>,
+    ) -> Self {
+        let mut mission = Self::new(capabilities, proof);
+        mission.actions = actions;
+        mission
+    }
+    
+    pub fn validator_version(&self) -> &str {
         &self.validator_version
     }
-
-    pub fn validation_proof(&self) -> &str {
-        &self.validation_proof
-    }
-
+    
     pub fn workspace_mode(&self) -> WorkspaceMode {
-        self.workspace_mode
+        self.capabilities.workspace_mode
     }
-
+    
     pub fn capabilities(&self) -> &ExecutionCapabilities {
         &self.capabilities
     }
     
-    pub fn validated_at(&self) -> &DateTime<Utc> {
-        &self.validated_at
+    pub fn mission_hash(&self) -> String {
+        self.mission_hash.clone()
     }
-}
-
-/// Proof generation error
-#[derive(Debug, thiserror::Error)]
-pub enum ProofError {
-    #[error("Hash generation failed: {0}")]
-    HashFailed(String),
-    #[error("Serialization failed: {0}")]
-    SerializationFailed(String),
+    
+    pub fn set_mission_hash(&mut self, hash: String) {
+        self.mission_hash = hash;
+    }
+    
+    pub fn validation_proof_str(&self) -> &str {
+        &self.validation_proof.0
+    }
+    
+    pub fn actions(&self) -> Vec<ValidatedAction> {
+        self.actions.clone()
+    }
 }

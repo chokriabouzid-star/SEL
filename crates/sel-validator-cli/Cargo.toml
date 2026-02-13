@@ -1,18 +1,16 @@
 [package]
 name = "sel-validator-cli"
 version = "1.0.0"
-edition = "2021"
-description = "SEL Validator CLI - Day 4 Implementation"
+edition = "2024"
+description = "SEL Validator CLI - Core 1.0 Compliant"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4.0", features = ["derive"] }
-
-# استخدم sel-validator المحلي
+sel-common = { path = "../sel-common" }
 sel-validator = { path = "../sel-validator" }
+clap = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }  # 👈 Added serde feature
+thiserror = { workspace = true }
 
-[[bin]]
-name = "sel-validator"
-path = "src/main.rs"
+[dev-dependencies]
+tempfile = { workspace = true }

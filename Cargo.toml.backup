@@ -1,9 +1,0 @@
-[workspace]
-resolver = "2"
-members = [
-    "crates/sel-core",
-    "crates/sel-common", 
-    "crates/sel-validator",
-    "crates/sel-engine",
-    "crates/sel-validator-cli",
-]

@@ -1,16 +1,19 @@
-//! SEL Engine core components
+//! SEL Engine - Sovereign Execution Core
+//! SEL Core 1.0 Compliant
 
-pub mod facts_logger;
-pub mod mission_executor;
-pub mod logical_clock;
 pub mod types;
+pub mod workspace;
+pub mod logical_clock;
+pub mod facts_logger;
 pub mod executor;
-pub mod workspace;  // ← NEW
+pub mod resource_limits;
 
-// Re-exports
-pub use facts_logger::{FactsLogger, FactsLoggerError};
-pub use mission_executor::{MissionExecutor as OldMissionExecutor, MissionExecutorError};
+pub use types::{ExecutionReport, ActionResult, ExecutorError};
+pub use workspace::Workspace;
 pub use logical_clock::LogicalClock;
-pub use types::*;
-pub use workspace::Workspace;  // ← NEW
-pub use executor::MissionExecutor;  // ← NEW (replaces old)
+pub use facts_logger::FactsLogger;
+pub use executor::MissionExecutor;
+pub use resource_limits::ResourceLimits;
+
+// Re-export WorkspaceMode from validator for convenience
+pub use sel_validator::WorkspaceMode;

@@ -1,20 +1,17 @@
-//! SEL Common - Shared types and utilities
+//! # SEL Common Library
+//! SEL Core 1.0 - Shared Types and Utilities
 
-/// Common error type
-#[derive(Debug, thiserror::Error)]
-pub enum SelError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-    
-    #[error("Validation error: {0}")]
-    Validation(String),
-    
-    #[error("Execution error: {0}")]
-    Execution(String),
-}
+pub mod canonical;
+pub mod env_norm;
+pub mod hash_chain;
+pub mod errors;
+pub mod resource_kind;
 
-/// Result type for SEL operations
-pub type Result<T> = std::result::Result<T, SelError>;
+pub use canonical::{canonicalize_json, canonicalize_json_value};
+pub use env_norm::normalize_environment;
+pub use hash_chain::{HashChain, HashChainBuilder, GENESIS_HASH};
+pub use errors::{SovereignError, SelResult};
+pub use resource_kind::ResourceKind;
+
+pub const SEL_VERSION: &str = "1.0.0";
+pub const SEL_CORE_VERSION: &str = "1.0.0";

@@ -1,28 +1,41 @@
-# Build artifacts
-target/
+# Generated files
+/target/
 **/*.rs.bk
-Cargo.lock
+*.log
+*.lock
+*.bak
+*.backup
+*.old
+*.orig
 
-# Editor files
+# IDE
+.idea/
+.vscode/
 *.swp
 *.swo
 *~
-.DS_Store
-.idea/
-.vscode/
 
-# System files
+# OS
+.DS_Store
 Thumbs.db
+
+# Backup directories
+.backup_*/
+**/backup_*/
+
+# Build artifacts
+**/Cargo.lock
+!Cargo.lock  # استثناء root Cargo.lock
+
+# Fuzz artifacts
+fuzz/artifacts/
+fuzz/corpus/
+fuzz/target/
 
 # Logs
-*.log
-facts_*.jsonl
+logs/
+**/*.log
 
-# Temporary files
+# Temporary
 tmp/
 temp/
-
-# OS specific
-.DS_Store
-._*
-Thumbs.db

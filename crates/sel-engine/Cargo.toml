@@ -1,31 +1,19 @@
 [package]
 name = "sel-engine"
 version = "1.0.0"
-edition = "2021"
-description = "Sovereign Execution Layer - Deterministic Execution Engine"
-license = "Apache-2.0"
-authors = ["SEL Team"]
-
-[[bin]]
-name = "sel-engine"
-path = "src/main.rs"
-
-[lib]
-name = "sel_engine"
-path = "src/lib.rs"
+edition = "2024"
+description = "SEL Engine - Sovereign Execution Core 1.0 - Fully Deterministic"
 
 [dependencies]
-sel-core = { path = "../sel-core" }
 sel-common = { path = "../sel-common" }
 sel-validator = { path = "../sel-validator" }
-
-# CLI dependencies
-clap = { version = "4.0", features = ["derive"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-chrono = "0.4"
-thiserror = "1.0"
-uuid = { version = "1.0", features = ["v4", "serde"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+uuid = { workspace = true, features = ["v4", "v5", "serde"] }  # 🔴 أضفنا v5
+thiserror = { workspace = true }
 
 [dev-dependencies]
-tempfile = "3.0"
+tempfile = { workspace = true }

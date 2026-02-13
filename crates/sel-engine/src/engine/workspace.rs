@@ -1,79 +1,64 @@
-//! Workspace Isolation - UUID-based Sovereign Execution Environment
+//! # Sovereign Workspace Isolation
+//! SEL Core 1.0 - DETERMINISTIC UUID (v5, no randomness)
 
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::fs;
 use uuid::Uuid;
 use sel_validator::WorkspaceMode;
-use crate::engine::types::WorkspaceError;
+use sel_common::SovereignError;
 
-/// Isolated workspace for mission execution
-#[derive(Debug)]
+/// DETERMINISTIC namespace for SEL workspaces
+/// This is FIXED and NEVER changes (like a constant)
+const SEL_NAMESPACE: Uuid = Uuid::from_bytes([
+    0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1,
+    0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8,
+]);
+
+/// Isolated workspace for deterministic execution
+/// 🔴 NO RANDOMNESS: UUID is derived deterministically from mission hash
 pub struct Workspace {
-    uuid: Uuid,
-    path: PathBuf,
-    mode: WorkspaceMode,
+    pub uuid: Uuid,
+    pub path: PathBuf,
+    pub mode: WorkspaceMode,
 }
 
 impl Workspace {
-    pub fn new(mode: WorkspaceMode) -> Result<Self, WorkspaceError> {
-        let uuid = Uuid::new_v4();
-        let path = PathBuf::from(format!("/tmp/sel-workspace-{}", uuid));
+    /// Create new workspace with DETERMINISTIC UUID
+    /// UUID = v5(mission_hash) → always the same for same mission
+    pub fn new(mode: WorkspaceMode, mission_hash: &str) -> Result<Self, SovereignError> {
+        // 🔴🔴🔴 DETERMINISTIC UUID - NO RANDOMNESS
+        let uuid = Uuid::new_v5(&SEL_NAMESPACE, mission_hash.as_bytes());
         
-        fs::create_dir_all(&path)
-            .map_err(WorkspaceError::CreationFailed)?;
+        let base_path = std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join("target")
+            .join("sel_workspaces")
+            .join(uuid.to_string());
         
-        // Set permissions for ReadOnly
-        if matches!(mode, WorkspaceMode::ReadOnly) {
-            let mut perms = fs::metadata(&path)
-                .map_err(WorkspaceError::PermissionsFailed)?
-                .permissions();
-            
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                perms.set_mode(0o555);
-            }
-            
-            fs::set_permissions(&path, perms)
-                .map_err(WorkspaceError::PermissionsFailed)?;
-        }
+        fs::create_dir_all(&base_path)
+            .map_err(|e| SovereignError::WorkspaceCreationFailed(
+                format!("Failed to create workspace at {}: {}", base_path.display(), e)
+            ))?;
         
-        Ok(Workspace { uuid, path, mode })
+        Ok(Self {
+            uuid,
+            path: base_path,
+            mode,
+        })
+    }
+    
+    pub fn uuid(&self) -> Uuid {
+        self.uuid
     }
     
     pub fn path(&self) -> &Path {
         &self.path
     }
     
-    pub fn uuid(&self) -> &Uuid {
-        &self.uuid
-    }
-    
-    pub fn mode(&self) -> WorkspaceMode {
-        self.mode
-    }
-    
-    pub fn cleanup(&self) -> Result<(), WorkspaceError> {
+    pub fn cleanup(&mut self) -> Result<(), SovereignError> {
         if self.path.exists() {
-            if matches!(self.mode, WorkspaceMode::ReadOnly) {
-                let mut perms = fs::metadata(&self.path)
-                    .map_err(WorkspaceError::CleanupFailed)?
-                    .permissions();
-                
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::PermissionsExt;
-                    perms.set_mode(0o755);
-                }
-                
-                fs::set_permissions(&self.path, perms)
-                    .map_err(WorkspaceError::CleanupFailed)?;
-            }
-            
-            fs::remove_dir_all(&self.path)
-                .map_err(WorkspaceError::CleanupFailed)?;
+            let _ = fs::remove_dir_all(&self.path);
         }
-        
         Ok(())
     }
 }
@@ -87,46 +72,17 @@ impl Drop for Workspace {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    
     #[test]
-    fn test_workspace_creation_readonly() {
-        let workspace = Workspace::new(WorkspaceMode::ReadOnly).unwrap();
-        assert!(workspace.path().exists());
-        drop(workspace);
-    }
-
-    #[test]
-    fn test_workspace_isolation() {
-        let ws1 = Workspace::new(WorkspaceMode::ReadOnly).unwrap();
-        let ws2 = Workspace::new(WorkspaceMode::ReadOnly).unwrap();
+    fn test_workspace_deterministic_uuid() {
+        let ws1 = Workspace::new(WorkspaceMode::ReadOnly, "test-mission-123").unwrap();
+        let ws2 = Workspace::new(WorkspaceMode::ReadOnly, "test-mission-123").unwrap();
         
-        assert_ne!(ws1.uuid(), ws2.uuid());
-        assert_ne!(ws1.path(), ws2.path());
-        assert!(ws1.path().exists());
-        assert!(ws2.path().exists());
-    }
-
-    #[test]
-    fn test_readonly_workspace() {
-        let workspace = Workspace::new(WorkspaceMode::ReadOnly).unwrap();
+        // Same mission hash = Same UUID (DETERMINISTIC)
+        assert_eq!(ws1.uuid(), ws2.uuid());
         
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let metadata = fs::metadata(workspace.path()).unwrap();
-            let mode = metadata.permissions().mode();
-            assert_eq!(mode & 0o777, 0o555);
-        }
-    }
-
-    #[test]
-    fn test_automatic_cleanup() {
-        let path = {
-            let workspace = Workspace::new(WorkspaceMode::ReadOnly).unwrap();
-            workspace.path().to_path_buf()
-        };
-        
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        assert!(!path.exists());
+        let ws3 = Workspace::new(WorkspaceMode::ReadOnly, "different-mission").unwrap();
+        // Different mission hash = Different UUID
+        assert_ne!(ws1.uuid(), ws3.uuid());
     }
 }

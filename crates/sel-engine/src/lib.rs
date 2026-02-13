@@ -1,20 +1,18 @@
-//! Sovereign Execution Layer - Core Engine
-//!
-//! This crate provides the deterministic execution engine for SEL.
+//! # SEL Engine
+//! Sovereign Execution Layer - Core Execution Engine
+//! SEL Core 1.0 Compliant
 
 pub mod engine;
 
-// Re-exports from engine module
 pub use engine::{
-    FactsLogger,
-    LogicalClock,
     MissionExecutor,
+    Workspace,
+    LogicalClock,
+    FactsLogger,
     ExecutionReport,
     ActionResult,
-    ExecutorError,
-    WorkspaceError,
-    CapabilityViolation,
+    WorkspaceMode,
+    ResourceLimits,
+    ExecutorError,      // 👈 Added for compatibility
 };
-
-// Day 5 - Phase 1 exports
-pub use engine::workspace::Workspace;
+pub use sel_common::SovereignError;

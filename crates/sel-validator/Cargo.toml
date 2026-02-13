@@ -1,17 +1,22 @@
 [package]
 name = "sel-validator"
-version = "1.0.0"
-edition = "2021"
-description = "SEL Validator - Sovereign Validation Gateway"
+version = "1.1.0-alpha"
+edition = "2024"
+description = "SEL Validator - Core 1.1 with Ed25519 support (optional)"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
-sha2 = "0.10"
-thiserror = "1.0"
-hex = "0.4"  # أضف هذه المكتبة
+sel-common = { path = "../sel-common" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+hmac = { workspace = true }
+ed25519-dalek = { version = "2.1", features = ["serde"], optional = true }
+rand = { version = "0.8", optional = true }
+chrono = { workspace = true, features = ["serde"] }
+thiserror = { workspace = true }
 
-[lib]
-name = "sel_validator"
-path = "src/lib.rs"
+[features]
+default = ["hmac"]
+hmac = []  # Core 1.0 - deterministic
+ed25519 = ["dep:ed25519-dalek", "dep:rand"]  # Core 1.1 - non-repudiation

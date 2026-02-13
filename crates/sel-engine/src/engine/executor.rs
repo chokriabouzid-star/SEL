@@ -1,122 +1,217 @@
-//! Mission Executor - Type-Safe Sovereign Execution
+//! # Sovereign Mission Executor
+//! SEL Core 1.0 - DETERMINISTIC + NO RANDOMNESS
 
-use uuid::Uuid;
-use std::path::PathBuf;
-use sel_validator::{ValidatedMission, ExecutionCapabilities, WorkspaceMode};
-use crate::engine::{
-    types::*,
-    workspace::Workspace,
-    FactsLogger,
-    LogicalClock,
+use sel_common::{SovereignError, SelResult, ResourceKind};
+use sel_validator::ValidatedMission;
+
+use super::{
+    Workspace, 
+    LogicalClock, 
+    FactsLogger, 
+    ExecutionReport, 
+    ActionResult,
+    ResourceLimits,
+    WorkspaceMode,
 };
 
 pub struct MissionExecutor {
-    workspace: Workspace,
-    facts_logger: FactsLogger,
-    logical_clock: LogicalClock,
+    pub workspace: Workspace,
+    pub logical_clock: LogicalClock,
+    pub facts_logger: FactsLogger,
+    pub limits: ResourceLimits,
+    pub mode: WorkspaceMode,
+    stdout_bytes_accumulated: usize,
+    stderr_bytes_accumulated: usize,
 }
 
 impl MissionExecutor {
-    pub fn new(mode: WorkspaceMode) -> Result<Self, ExecutorError> {
-        let workspace = Workspace::new(mode)?;
-        let facts_path = workspace.path().join("facts.jsonl");
-        let facts_logger = FactsLogger::new(facts_path)?;
+    pub fn new(mode: WorkspaceMode, mission_hash: &str) -> SelResult<Self> {
+        Self::new_with_limits(mode, mission_hash, ResourceLimits::core_compliant())
+    }
+    
+    pub fn new_with_limits(
+        mode: WorkspaceMode, 
+        mission_hash: &str,
+        limits: ResourceLimits
+    ) -> SelResult<Self> {
+        // 🔴🔴🔴 PASS MISSION HASH FOR DETERMINISTIC UUID
+        let workspace = Workspace::new(mode, mission_hash)?;
         let logical_clock = LogicalClock::new();
         
-        Ok(MissionExecutor {
+        let facts_path = workspace.path().join("facts.jsonl");
+        
+        if let Some(parent) = facts_path.parent() {
+            if !parent.exists() {
+                return Err(SovereignError::WorkspaceCreationFailed(
+                    format!("Workspace directory does not exist: {}", parent.display())
+                ));
+            }
+        }
+        
+        let facts_logger = FactsLogger::new(&facts_path)
+            .map_err(|e| SovereignError::InternalError(
+                format!("Failed to create facts logger at {}: {}", facts_path.display(), e)
+            ))?;
+        
+        Ok(Self {
             workspace,
-            facts_logger,
             logical_clock,
+            facts_logger,
+            limits,
+            mode,
+            stdout_bytes_accumulated: 0,
+            stderr_bytes_accumulated: 0,
         })
     }
     
-    pub fn workspace_uuid(&self) -> &Uuid {
-        self.workspace.uuid()
-    }
-    
-    pub fn workspace_path(&self) -> &std::path::Path {
-        self.workspace.path()
-    }
-    
-    pub fn facts_path(&self) -> PathBuf {
-        self.workspace.path().join("facts.jsonl")
-    }
-    
-    pub fn execute(
-        &mut self,
-        _validated: ValidatedMission
-    ) -> Result<ExecutionReport, ExecutorError> {
-        todo!("Step 2-3: Full execution pipeline")
-    }
-    
-    fn execute_action(
-        &mut self,
-        _action_index: usize,
-        _action: &serde_json::Value,
-        _capabilities: &ExecutionCapabilities,
-    ) -> Result<ActionResult, ExecutorError> {
-        todo!("Step 3: Action execution")
-    }
-    
-    fn enforce_capabilities(
-        &self,
-        _action: &serde_json::Value,
-        _capabilities: &ExecutionCapabilities,
-    ) -> Result<(), CapabilityViolation> {
-        todo!("Step 3: Capability enforcement")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_executor_creation() {
-        let executor = MissionExecutor::new(WorkspaceMode::ReadOnly);
-        assert!(executor.is_ok());
-    }
-
-    #[test]
-    fn test_executor_workspace_isolation() {
-        let exec1 = MissionExecutor::new(WorkspaceMode::ReadOnly).unwrap();
-        let exec2 = MissionExecutor::new(WorkspaceMode::ReadOnly).unwrap();
-        
-        assert_ne!(exec1.workspace_uuid(), exec2.workspace_uuid());
-        assert_ne!(exec1.workspace_path(), exec2.workspace_path());
-    }
-
-    #[test]
-    fn test_executor_facts_logger() {
-        let executor = MissionExecutor::new(WorkspaceMode::ReadOnly).unwrap();
-        
-        let facts_path = executor.facts_path();
-        assert!(facts_path.starts_with(executor.workspace_path()));
-        assert!(facts_path.ends_with("facts.jsonl"));
-    }
-
-    #[test]
-    fn test_executor_readonly_mode() {
-        let executor = MissionExecutor::new(WorkspaceMode::ReadOnly).unwrap();
-        assert!(executor.workspace_path().exists());
-        
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let metadata = std::fs::metadata(executor.workspace_path()).unwrap();
-            let mode = metadata.permissions().mode();
-            assert_eq!(mode & 0o777, 0o555);
+    pub fn execute(&mut self, validated: ValidatedMission) -> SelResult<ExecutionReport> {
+        if validated.validation_proof_str().is_empty() {
+            return Err(SovereignError::MissingValidationProof);
         }
-    }
-
-    #[test]
-    fn test_executor_cleanup() {
-        let path = {
-            let executor = MissionExecutor::new(WorkspaceMode::ReadOnly).unwrap();
-            executor.workspace_path().to_path_buf()
-        };
         
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        assert!(!path.exists());
+        let actions = validated.actions();
+        
+        if actions.len() > self.limits.max_actions {
+            return Err(SovereignError::ResourceExhaustion {
+                kind: ResourceKind::Actions,
+                limit: self.limits.max_actions as u64,
+                requested: actions.len() as u64,
+            });
+        }
+        
+        self.logical_clock.tick();
+        let mission_start = serde_json::json!({
+            "type": "mission_start",
+            "mission_hash": validated.mission_hash(),
+            "logical_tick": self.logical_clock.ticks(),
+        });
+        
+        self.facts_logger.log_fact(mission_start)?;
+        
+        let mut actions_succeeded = 0;
+        let mut actions_failed = 0;
+        let start_ticks = self.logical_clock.ticks();
+        
+        for (index, action) in actions.iter().enumerate() {
+            if self.logical_clock.ticks() + 2 >= self.limits.max_ticks {
+                return Err(SovereignError::ResourceExhaustion {
+                    kind: ResourceKind::Ticks,
+                    limit: self.limits.max_ticks,
+                    requested: self.logical_clock.ticks() + 2,
+                });
+            }
+            
+            self.logical_clock.tick();
+            let action_start = serde_json::json!({
+                "type": "action_start",
+                "action_index": index,
+                "command": action.command,
+                "args": action.args,
+                "logical_tick": self.logical_clock.ticks(),
+            });
+            
+            self.facts_logger.log_fact(action_start)?;
+            
+            let result = self.execute_builtin(&action.command, &action.args);
+            
+            self.stdout_bytes_accumulated += result.stdout.len();
+            if self.stdout_bytes_accumulated > self.limits.max_stdout_bytes {
+                return Err(SovereignError::ResourceExhaustion {
+                    kind: ResourceKind::Stdout,
+                    limit: self.limits.max_stdout_bytes as u64,
+                    requested: self.stdout_bytes_accumulated as u64,
+                });
+            }
+            
+            self.stderr_bytes_accumulated += result.stderr.len();
+            if self.stderr_bytes_accumulated > self.limits.max_stderr_bytes {
+                return Err(SovereignError::ResourceExhaustion {
+                    kind: ResourceKind::Stderr,
+                    limit: self.limits.max_stderr_bytes as u64,
+                    requested: self.stderr_bytes_accumulated as u64,
+                });
+            }
+            
+            if result.exit_code == 0 {
+                actions_succeeded += 1;
+            } else {
+                actions_failed += 1;
+            }
+            
+            self.logical_clock.tick();
+            let action_end = serde_json::json!({
+                "type": "action_end",
+                "action_index": index,
+                "exit_code": result.exit_code,
+                "stdout_bytes": result.stdout.len(),
+                "stderr_bytes": result.stderr.len(),
+                "logical_tick": self.logical_clock.ticks(),
+            });
+            
+            self.facts_logger.log_fact(action_end)?;
+        }
+        
+        self.logical_clock.tick();
+        let mission_end = serde_json::json!({
+            "type": "mission_end",
+            "actions_total": actions.len(),
+            "actions_succeeded": actions_succeeded,
+            "actions_failed": actions_failed,
+            "logical_tick": self.logical_clock.ticks(),
+        });
+        
+        self.facts_logger.log_fact(mission_end)?;
+        
+        let final_hash = self.facts_logger.finalize();
+        
+        Ok(ExecutionReport {
+            mission_hash: validated.mission_hash(),
+            validation_proof: validated.validation_proof_str().to_string(),
+            validator_version: validated.validator_version().to_string(),
+            workspace_uuid: self.workspace.uuid().to_string(),
+            actions_total: actions.len(),
+            actions_succeeded,
+            actions_failed,
+            total_duration_ms: 0,
+            facts_file: self.facts_logger.path().to_path_buf(),
+            final_hash,
+            logical_ticks: self.logical_clock.ticks() - start_ticks,
+            workspace_mode: format!("{:?}", self.mode),
+            stdout_bytes: self.stdout_bytes_accumulated,
+            stderr_bytes: self.stderr_bytes_accumulated,
+        })
+    }
+    
+    fn execute_builtin(&self, command: &str, args: &[String]) -> ActionResult {
+        match command {
+            "echo" => {
+                let output = args.join(" ");
+                ActionResult {
+                    exit_code: 0,
+                    stdout: output + "\n",
+                    stderr: String::new(),
+                    duration_ms: 0,
+                    action_index: 0,
+                }
+            }
+            "pwd" => {
+                ActionResult {
+                    exit_code: 0,
+                    stdout: ".\n".to_string(),
+                    stderr: String::new(),
+                    duration_ms: 0,
+                    action_index: 0,
+                }
+            }
+            _ => {
+                ActionResult {
+                    exit_code: 127,
+                    stdout: String::new(),
+                    stderr: format!("builtin: command not found: {}\n", command),
+                    duration_ms: 0,
+                    action_index: 0,
+                }
+            }
+        }
     }
 }

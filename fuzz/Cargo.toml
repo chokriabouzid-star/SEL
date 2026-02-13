@@ -1,0 +1,38 @@
+[package]
+name = "sel-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+sel-common = { path = "../crates/sel-common" }
+sel-validator = { path = "../crates/sel-validator" }
+serde_json = "1.0"
+
+[[bin]]
+name = "canonical"
+path = "fuzz_targets/canonical.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "validator"
+path = "fuzz_targets/validator.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "signature"
+path = "fuzz_targets/signature.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "check_determinism"
+path = "check_determinism.rs"
+test = false
+doc = false

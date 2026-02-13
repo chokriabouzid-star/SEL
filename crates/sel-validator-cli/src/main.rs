@@ -1,89 +1,81 @@
+//! SEL Validator CLI - Core 1.0
+//! Command-line interface for mission validation
+
 use clap::{Parser, Subcommand};
-use sel_validator::{Validator, ValidationResult};
-use serde_json::Value;
-use std::process;
+use sel_validator::{Validator, ValidationConfig, ValidatedMission};
+use sel_common::SovereignError;
+use std::fs;
+use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(author, version, about = "SEL Validator - Day 4: The Shield")]
+#[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Mission JSON file to validate
-    #[arg(short, long)]
-    file: String,
-    
-    /// Show detailed validation report
-    #[arg(short, long)]
-    verbose: bool,
+    #[command(subcommand)]
+    command: Commands,
 }
 
-fn main() {
+#[derive(Subcommand)]
+enum Commands {
+    /// Validate a mission file
+    Validate {
+        /// Path to mission JSON file
+        mission: PathBuf,
+        
+        /// Maximum actions allowed
+        #[arg(short, long, default_value_t = 1000)]
+        max_actions: usize,
+        
+        /// Disable strict security mode
+        #[arg(long)]
+        no_strict: bool,
+    },
+}
+
+fn main() -> Result<(), SovereignError> {
     let cli = Cli::parse();
     
-    println!("🛡️  SEL Validator - Day 4: The Shield");
-    println!("📄 File: {}", cli.file);
-    println!("{}", "=".repeat(50));
-    
-    // Read and parse JSON
-    let content = match std::fs::read_to_string(&cli.file) {
-        Ok(content) => content,
-        Err(e) => {
-            eprintln!("❌ Failed to read file: {}", e);
-            process::exit(1);
-        }
-    };
-    
-    let mission: Value = match serde_json::from_str(&content) {
-        Ok(mission) => mission,
-        Err(e) => {
-            eprintln!("❌ Invalid JSON: {}", e);
-            process::exit(1);
-        }
-    };
-    
-    // Validate
-    let mut validator = Validator::new();
-    let result = validator.validate(&mission);
-    
-    match result {
-        ValidationResult::Valid(validated) => {
-            println!("✅ VALIDATION PASSED");
-            println!();
-            
-            println!("📋 Summary:");
-            println!("  • Validator: {}", validated.validator_version());
-            println!("  • Mode: {:?}", validated.workspace_mode());
-            println!("  • Timestamp: {}", validated.validated_at());
-            
-            if cli.verbose {
-                println!();
-                println!("🔐 Details:");
-                println!("  • Validation Proof: {}", validated.validation_proof());
-                println!("  • Allowed Commands: {:?}", validated.capabilities().allowed_commands);
-                println!("  • Max Execution Time: {} seconds", 
-                         validated.capabilities().max_execution_time.as_secs());
-            }
-        }
-        
-        ValidationResult::Invalid { errors, suggestions } => {
-            println!("❌ VALIDATION FAILED");
-            println!();
-            
-            println!("🚫 Errors found:");
-            for (i, error) in errors.iter().enumerate() {
-                println!("  {}. [{}] {}", i + 1, error.error_type, error.message);
-                if let Some(location) = &error.location {
-                    println!("     Location: {}", location);
-                }
-            }
-            
-            if !suggestions.is_empty() {
-                println!();
-                println!("💡 Suggestions:");
-                for suggestion in suggestions {
-                    println!("  • {}", suggestion);
-                }
-            }
-            
-            process::exit(1);
+    match cli.command {
+        Commands::Validate { mission, max_actions, no_strict } => {
+            validate_mission(&mission, max_actions, !no_strict)?;
         }
     }
+    
+    Ok(())
+}
+
+fn validate_mission(
+    path: &PathBuf,
+    max_actions: usize,
+    strict_mode: bool,
+) -> Result<ValidatedMission, SovereignError> {
+    println!("🔐 SEL Validator Core 1.0");
+    println!("========================");
+    println!("📄 Mission: {}", path.display());
+    
+    // Read mission file
+    let content = fs::read_to_string(path)
+        .map_err(|e| SovereignError::InvalidMissionFormat(format!(
+            "Failed to read file: {}", e
+        )))?;
+    
+    // Create validator
+    let config = ValidationConfig {
+        max_actions,
+        strict_mode,
+        ..Default::default()
+    };
+    
+    let validator = Validator::new(config);
+    
+    // Validate mission
+    println!("🔍 Validating...");
+    let validated = validator.validate(&content)?;
+    
+    println!("✅ VALIDATION SUCCESSFUL");
+    println!("   • Validator: {}", validated.validator_version());
+    println!("   • Workspace Mode: {:?}", validated.workspace_mode());
+    println!("   • Actions: {}", validated.actions().len());
+    println!("   • Proof: {}...", &validated.validation_proof_str()[..16.min(64)]);
+    
+    Ok(validated)
 }

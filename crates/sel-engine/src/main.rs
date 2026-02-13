@@ -1,283 +1,37 @@
-//! SEL Engine CLI
+//! # SEL Engine - Core 1.0 Demonstration
+//! 🔒 NO RANDOMNESS - Fully Deterministic
 
-use clap::{Parser, Subcommand};
-use sel_core::{canonicalize_json, HashChain};
-use sel_validator::{Validator, ValidationResult};
-use serde_json::{Value, json};
-use std::fs;
+use sel_engine::{MissionExecutor, WorkspaceMode};
+use sel_validator::{Validator, ValidationConfig};
+use sel_common::SovereignError;
 
-#[derive(Parser)]
-#[command(name = "sel-engine")]
-#[command(about = "Sovereign Execution Layer - Deterministic Execution Engine")]
-#[command(version = "1.0.0")]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Canonicalize JSON (Day 2)
-    Canonicalize {
-        /// JSON file to canonicalize
-        mission_file: String,
-    },
-
-    /// Create hash chain (Day 2)
-    HashChain {
-        /// JSON files to add to chain
-        files: Vec<String>,
-    },
-
-    /// Validate mission (Day 4)
-    Validate {
-        /// Mission JSON file
-        mission_file: String,
-        
-        /// Show detailed validation report
-        #[arg(short, long)]
-        verbose: bool,
-    },
-
-    /// Test SEL components
-    Test {
-        /// Component to test (all, canonical, hash, validate)
-        #[arg(default_value = "all")]
-        component: String,
-    },
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let cli = Cli::parse();
-
-    match cli.command {
-        Commands::Canonicalize { mission_file } => {
-            println!("🔤 SEL Canonical JSON (Day 2)");
-            println!("📄 File: {}", mission_file);
-            println!("{}", "=".repeat(50));
-            
-            let content = fs::read_to_string(&mission_file)?;
-            let json: Value = serde_json::from_str(&content)?;
-            
-            let canonical = canonicalize_json(&json);
-            println!("✅ Canonical JSON:");
-            println!("{}", canonical);
-            
-            // Also show hash
-            let mut chain = HashChain::new();
-            let hash = chain.append(&json);
-            println!("🔒 Hash: {}", hash);
-        }
-        
-        Commands::HashChain { files } => {
-            println!("⛓️  SEL Hash Chain (Day 2)");
-            println!("📁 Files: {}", files.join(", "));
-            println!("{}", "=".repeat(50));
-            
-            let mut chain = HashChain::new();
-            
-            for file in &files {
-                let content = fs::read_to_string(file)?;
-                let json: Value = serde_json::from_str(&content)?;
-                
-                let hash = chain.append(&json);
-                println!("📄 {} → {}", file, hash);
-            }
-            
-            println!();
-            println!("📊 Summary:");
-            println!("  • Files processed: {}", files.len());
-            if let Some(final_hash) = chain.final_hash() {
-                println!("  • Final hash: {}", final_hash);
-            }
-        }
-        
-        Commands::Validate { mission_file, verbose } => {
-            println!("🛡️  SEL Validator (Day 4)");
-            println!("📄 File: {}", mission_file);
-            println!("{}", "=".repeat(50));
-            
-            let content = fs::read_to_string(&mission_file)?;
-            let mission: Value = serde_json::from_str(&content)?;
-            
-            let mut validator = Validator::new();
-            let result = validator.validate(&mission);
-            
-            match result {
-                ValidationResult::Valid(validated) => {
-                    println!("✅ VALIDATION PASSED");
-                    println!();
-                    
-                    println!("📋 Summary:");
-                    println!("  • Validator: {}", validated.validator_version());
-                    println!("  • Mode: {:?}", validated.workspace_mode());
-                    
-                    if verbose {
-                        println!();
-                        println!("🔐 Details:");
-                        println!("  • Validation Proof: {}", validated.validation_proof());
-                        let caps = validated.capabilities();
-                        println!("  • Allowed Commands: {:?}", caps.allowed_commands);
-                        println!("  • Allowed Paths: {:?}", caps.allowed_paths);
-                        println!("  • Max Execution Time: {} seconds", caps.max_execution_time.as_secs());
-                        println!("  • Timestamp: {}", validated.validated_at());
-                    }
-                }
-                
-                ValidationResult::Invalid { errors, suggestions } => {
-                    println!("❌ VALIDATION FAILED");
-                    println!();
-                    
-                    println!("🚫 Errors found:");
-                    for (i, error) in errors.iter().enumerate() {
-                        println!("  {}. [{}] {}", i + 1, error.error_type, error.message);
-                        if let Some(location) = &error.location {
-                            println!("     Location: {}", location);
-                        }
-                    }
-                    
-                    if !suggestions.is_empty() {
-                        println!();
-                        println!("💡 Suggestions:");
-                        for suggestion in suggestions {
-                            println!("  • {}", suggestion);
-                        }
-                    }
-                    
-                    std::process::exit(1);
-                }
-            }
-        }
-        
-        Commands::Test { component } => {
-            println!("🧪 SEL Integration Test");
-            println!("{}", "=".repeat(50));
-            
-            match component.as_str() {
-                "all" => {
-                    println!("Running all tests...");
-                    
-                    // Test canonical JSON
-                    println!("\n1. Testing canonical JSON...");
-                    let test_json = json!({
-                        "name": "test",
-                        "actions": [{"type": "command", "command": "echo", "args": ["hello"]}]
-                    });
-                    let canonical = canonicalize_json(&test_json);
-                    println!("   Result: {}", canonical);
-                    println!("   ✅ Canonical test passed");
-                    
-                    // Test hash chain
-                    println!("\n2. Testing hash chain...");
-                    let mut chain = HashChain::new();
-                    let data1 = json!({"a": 1});
-                    let data2 = json!({"b": 2});
-                    
-                    let hash1 = chain.append(&data1);
-                    let hash2 = chain.append(&data2);
-                    
-                    println!("   Hash 1: {}", hash1);
-                    println!("   Hash 2: {}", hash2);
-                    println!("   ✅ Hash chain test passed");
-                    
-                    // Test validator
-                    println!("\n3. Testing validator...");
-                    
-                    // Test valid mission
-                    let valid_mission = json!({
-                        "name": "test-mission",
-                        "actions": [{"type": "command", "command": "echo", "args": ["hello"]}]
-                    });
-                    
-                    let mut validator = Validator::new();
-                    let result = validator.validate(&valid_mission);
-                    
-                    if let ValidationResult::Valid(_) = result {
-                        println!("   ✅ Valid mission test passed");
-                    } else {
-                        println!("   ❌ Valid mission test failed");
-                    }
-                    
-                    // Test forbidden command
-                    let dangerous_mission = json!({
-                        "name": "dangerous",
-                        "actions": [{"type": "command", "command": "rm", "args": ["-rf", "/"]}]
-                    });
-                    
-                    let result = validator.validate(&dangerous_mission);
-                    if let ValidationResult::Invalid { .. } = result {
-                        println!("   ✅ Forbidden command test passed");
-                    } else {
-                        println!("   ❌ Forbidden command test failed");
-                    }
-                    
-                    println!("\n🎉 All tests completed successfully!");
-                }
-                
-                "canonical" => {
-                    println!("\n1. Testing canonical JSON...");
-                    let test_json = json!({
-                        "name": "test",
-                        "actions": [{"type": "command", "command": "echo", "args": ["hello"]}]
-                    });
-                    let canonical = canonicalize_json(&test_json);
-                    println!("   Result: {}", canonical);
-                    println!("   ✅ Canonical test passed");
-                }
-                
-                "hash" => {
-                    println!("\n2. Testing hash chain...");
-                    let mut chain = HashChain::new();
-                    let data1 = json!({"a": 1});
-                    let data2 = json!({"b": 2});
-                    
-                    let hash1 = chain.append(&data1);
-                    let hash2 = chain.append(&data2);
-                    
-                    println!("   Hash 1: {}", hash1);
-                    println!("   Hash 2: {}", hash2);
-                    println!("   ✅ Hash chain test passed");
-                }
-                
-                "validate" => {
-                    println!("\n3. Testing validator...");
-                    
-                    // Test valid mission
-                    let valid_mission = json!({
-                        "name": "test-mission",
-                        "actions": [{"type": "command", "command": "echo", "args": ["hello"]}]
-                    });
-                    
-                    let mut validator = Validator::new();
-                    let result = validator.validate(&valid_mission);
-                    
-                    if let ValidationResult::Valid(_) = result {
-                        println!("   ✅ Valid mission test passed");
-                    } else {
-                        println!("   ❌ Valid mission test failed");
-                    }
-                    
-                    // Test forbidden command
-                    let dangerous_mission = json!({
-                        "name": "dangerous",
-                        "actions": [{"type": "command", "command": "rm", "args": ["-rf", "/"]}]
-                    });
-                    
-                    let result = validator.validate(&dangerous_mission);
-                    if let ValidationResult::Invalid { .. } = result {
-                        println!("   ✅ Forbidden command test passed");
-                    } else {
-                        println!("   ❌ Forbidden command test failed");
-                    }
-                }
-                
-                _ => {
-                    println!("❌ Unknown component: {}", component);
-                    println!("   Available: canonical, hash, validate, all");
-                }
-            }
-        }
-    }
-
+fn main() -> Result<(), SovereignError> {
+    println!("🔐 SEL Engine Core 1.0 - DETERMINISTIC");
+    println!("=======================================");
+    
+    let mission_json = r#"{
+        "name": "sel-core-1.0-demo",
+        "actions": [
+            {"command": "echo", "args": ["Hello", "from", "SEL", "Core", "1.0!"]},
+            {"command": "pwd", "args": []}
+        ]
+    }"#;
+    
+    let validator = Validator::new(ValidationConfig::default());
+    let validated = validator.validate(mission_json)?;
+    let mission_hash = validated.mission_hash();
+    
+    let mut executor = MissionExecutor::new(
+        WorkspaceMode::ReadOnly, 
+        &mission_hash
+    )?;
+    
+    let report = executor.execute(validated)?;
+    
+    println!("\n✅ Execution Complete");
+    println!("   • Workspace: {}", executor.workspace.uuid());
+    println!("   • Hash: {}", &report.final_hash[..16]);
+    println!("   • Ticks: {}", report.logical_ticks);
+    
     Ok(())
 }
