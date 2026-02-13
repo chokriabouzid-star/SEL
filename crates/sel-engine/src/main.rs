@@ -17,6 +17,7 @@ fn main() -> Result<(), SovereignError> {
         ]
     }"#;
     
+    // ✅ لا استخدام لـ ? هنا - Validator::new لا يرجع Result
     let validator = Validator::new(ValidationConfig::default());
     let validated = validator.validate(mission_json)?;
     let mission_hash = validated.mission_hash();

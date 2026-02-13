@@ -1,152 +1,165 @@
 //! # Cryptographic Authority
-//! SEL Core 1.1 - Pluggable Signature Schemes
-//!
-//! 🔵 HMAC-SHA256: Core 1.0 compatible, deterministic (default)
-//! 🔴 Ed25519: Core 1.1, non-repudiation (optional, feature-gated)
+//! SEL Extended 1.1 - Dual Crypto Support
+//! ✅ يعمل مع ed25519-dalek v2.2.0 و rand_core مع getrandom
 
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
-use sel_common::{SovereignError, SelResult};
-use crate::signature::SignatureAuthority;
+use serde::{Serialize, Deserialize};
 
 type HmacSha256 = Hmac<Sha256>;
 
 #[cfg(feature = "ed25519")]
 use ed25519_dalek::{SigningKey, VerifyingKey, Signature, Signer, Verifier};
 #[cfg(feature = "ed25519")]
-use rand::rngs::OsRng;
+use rand_core::{OsRng, RngCore};
 
-/// HMAC-SHA256 implementation - Core 1.0 compatible
-/// ✅ Deterministic, no randomness
-#[derive(Clone)]
-pub struct HmacAuthority {
-    key: Vec<u8>,
+/// Type of cryptographic signature
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SignatureType {
+    /// HMAC-SHA256 - deterministic, symmetric (Core 1.0)
+    Hmac,
+    /// Ed25519 - non-repudiation, asymmetric (Extended)
+    #[cfg(feature = "ed25519")]
+    Ed25519,
 }
 
-impl HmacAuthority {
-    pub fn new(key: Vec<u8>) -> SelResult<Self> {
-        if key.is_empty() {
-            return Err(SovereignError::InternalError("HMAC key cannot be empty".to_string()));
-        }
-        Ok(Self { key })
-    }
-    
-    /// Create deterministic test key (Core 1.0)
-    pub fn test_key() -> Self {
-        Self {
-            key: vec![
-                0x53, 0x45, 0x4c, 0x5f, 0x43, 0x4f, 0x52, 0x45,
-                0x5f, 0x31, 0x2e, 0x30, 0x5f, 0x4b, 0x45, 0x59,
-            ],
-        }
-    }
-}
-
-impl SignatureAuthority for HmacAuthority {
-    fn sign(&self, payload: &[u8]) -> SelResult<String> {
-        let mut mac = HmacSha256::new_from_slice(&self.key)
-            .map_err(|_| SovereignError::InternalError("Invalid HMAC key length".to_string()))?;
-        
-        mac.update(payload);
-        let result = mac.finalize();
-        Ok(hex::encode(result.into_bytes()))
-    }
-    
-    fn verify(&self, payload: &[u8], signature: &str) -> SelResult<()> {
-        let signature_bytes = hex::decode(signature)
-            .map_err(|_| SovereignError::InvalidMissionFormat("Invalid signature hex".to_string()))?;
-        
-        let mut mac = HmacSha256::new_from_slice(&self.key)
-            .map_err(|_| SovereignError::InternalError("Invalid HMAC key length".to_string()))?;
-        
-        mac.update(payload);
-        
-        mac.verify_slice(&signature_bytes)
-            .map_err(|_| SovereignError::InvalidMissionFormat("Invalid signature".to_string()))
-    }
-    
-    fn algorithm(&self) -> &'static str {
-        "HMAC-SHA256"
-    }
-}
-
-/// Ed25519 implementation - Core 1.1, optional feature
-/// 🔴 Non-repudiation, public key crypto
-#[cfg(feature = "ed25519")]
-#[derive(Clone)]
-pub struct Ed25519Authority {
-    signing_key: SigningKey,
-}
-
-#[cfg(feature = "ed25519")]
-impl Ed25519Authority {
-    pub fn new() -> Self {
-        let mut csprng = OsRng;
-        let signing_key = SigningKey::generate(&mut csprng);
-        Self { signing_key }
-    }
-    
-    pub fn from_bytes(bytes: &[u8; 32]) -> Self {
-        let signing_key = SigningKey::from_bytes(bytes);
-        Self { signing_key }
-    }
-    
-    pub fn public_key(&self) -> String {
-        hex::encode(VerifyingKey::from(&self.signing_key).to_bytes())
-    }
-}
-
-#[cfg(feature = "ed25519")]
-impl SignatureAuthority for Ed25519Authority {
-    fn sign(&self, payload: &[u8]) -> SelResult<String> {
-        let signature = self.signing_key.sign(payload);
-        Ok(hex::encode(signature.to_bytes()))
-    }
-    
-    fn verify(&self, payload: &[u8], signature: &str) -> SelResult<()> {
-        let signature_bytes = hex::decode(signature)
-            .map_err(|_| SovereignError::InvalidMissionFormat("Invalid signature hex".to_string()))?;
-        
-        let signature = Signature::from_bytes(&signature_bytes.try_into().map_err(|_| 
-            SovereignError::InvalidMissionFormat("Invalid signature length".to_string()))?)
-            .map_err(|_| SovereignError::InvalidMissionFormat("Invalid signature format".to_string()))?;
-        
-        let verifying_key = VerifyingKey::from(&self.signing_key);
-        
-        verifying_key.verify(payload, &signature)
-            .map_err(|_| SovereignError::InvalidMissionFormat("Invalid signature".to_string()))
-    }
-    
-    fn algorithm(&self) -> &'static str {
-        "Ed25519"
-    }
-}
-
-#[cfg(feature = "ed25519")]
-impl Default for Ed25519Authority {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Legacy CryptoAuthority - maintained for backward compatibility
+/// Cryptographic authority with dual-mode support
 pub struct CryptoAuthority {
-    inner: HmacAuthority,
+    hmac_key: Vec<u8>,
+    #[cfg(feature = "ed25519")]
+    ed25519_key: Option<SigningKey>,
+    signature_type: SignatureType,
 }
 
 impl CryptoAuthority {
-    pub fn new_hmac() -> SelResult<Self> {
-        Ok(Self {
-            inner: HmacAuthority::test_key(),
+    /// Create new CryptoAuthority with HMAC only (Core 1.0)
+    pub fn new_hmac() -> Self {
+        Self {
+            hmac_key: vec![
+                0x53, 0x45, 0x4c, 0x5f, 0x43, 0x4f, 0x52, 0x45,
+                0x5f, 0x31, 0x2e, 0x30, 0x5f, 0x4b, 0x45, 0x59,
+            ],
+            #[cfg(feature = "ed25519")]
+            ed25519_key: None,
+            signature_type: SignatureType::Hmac,
+        }
+    }
+    
+    /// Create new CryptoAuthority with Ed25519 (requires feature)
+    #[cfg(feature = "ed25519")]
+    pub fn new_ed25519() -> Self {
+        // ✅ الطريقة الصحيحة لإنشاء SigningKey في v2.2.0
+        let mut bytes = [0u8; 32];
+        OsRng.fill_bytes(&mut bytes);
+        let signing_key = SigningKey::from_bytes(&bytes);
+        
+        Self {
+            hmac_key: Self::new_hmac().hmac_key,
+            ed25519_key: Some(signing_key),
+            signature_type: SignatureType::Ed25519,
+        }
+    }
+    
+    /// Create with custom HMAC key
+    pub fn with_hmac_key(key: Vec<u8>) -> Self {
+        Self {
+            hmac_key: key,
+            #[cfg(feature = "ed25519")]
+            ed25519_key: None,
+            signature_type: SignatureType::Hmac,
+        }
+    }
+    
+    /// Get current signature type
+    pub fn signature_type(&self) -> SignatureType {
+        self.signature_type
+    }
+    
+    /// Sign a message with current crypto
+    pub fn sign(&self, message: &str) -> String {
+        match self.signature_type {
+            SignatureType::Hmac => self.sign_hmac(message),
+            #[cfg(feature = "ed25519")]
+            SignatureType::Ed25519 => self.sign_ed25519(message).unwrap_or_else(|| self.sign_hmac(message)),
+        }
+    }
+    
+    /// Sign with HMAC-SHA256 (deterministic)
+    fn sign_hmac(&self, message: &str) -> String {
+        let mut mac = HmacSha256::new_from_slice(&self.hmac_key)
+            .expect("HMAC key length is valid");
+        mac.update(message.as_bytes());
+        let result = mac.finalize();
+        hex::encode(result.into_bytes())
+    }
+    
+    /// Sign with Ed25519 (non-repudiation)
+    #[cfg(feature = "ed25519")]
+    fn sign_ed25519(&self, message: &str) -> Option<String> {
+        self.ed25519_key.as_ref().map(|key| {
+            let signature: Signature = key.sign(message.as_bytes());
+            hex::encode(signature.to_bytes())
         })
     }
     
-    pub fn sign(&self, canonical_mission: &str) -> SelResult<String> {
-        self.inner.sign(canonical_mission.as_bytes())
+    /// Verify a signature
+    pub fn verify(&self, message: &str, signature_hex: &str, sig_type: SignatureType) -> bool {
+        match sig_type {
+            SignatureType::Hmac => self.verify_hmac(message, signature_hex),
+            #[cfg(feature = "ed25519")]
+            SignatureType::Ed25519 => self.verify_ed25519(message, signature_hex),
+        }
     }
     
-    pub fn verify(&self, canonical_mission: &str, signature: &str) -> SelResult<()> {
-        self.inner.verify(canonical_mission.as_bytes(), signature)
+    /// Verify HMAC signature
+    fn verify_hmac(&self, message: &str, signature_hex: &str) -> bool {
+        let expected = self.sign_hmac(message);
+        expected == signature_hex
+    }
+    
+    /// Verify Ed25519 signature
+    #[cfg(feature = "ed25519")]
+    fn verify_ed25519(&self, message: &str, signature_hex: &str) -> bool {
+        if let Some(key) = &self.ed25519_key {
+            let verifying_key = VerifyingKey::from(key);
+            let signature_bytes = match hex::decode(signature_hex) {
+                Ok(bytes) => bytes,
+                Err(_) => return false,
+            };
+            
+            if signature_bytes.len() != 64 {
+                return false;
+            }
+            let mut array = [0u8; 64];
+            array.copy_from_slice(&signature_bytes);
+            
+            // ✅ في v2.2.0، from_bytes تعمل مباشرة
+            let signature = Signature::from_bytes(&array);
+            
+            verifying_key.verify(message.as_bytes(), &signature).is_ok()
+        } else {
+            false
+        }
+    }
+    
+    /// Get public key (Ed25519)
+    #[cfg(feature = "ed25519")]
+    pub fn public_key(&self) -> Option<String> {
+        self.ed25519_key.as_ref().map(|key| {
+            let verifying_key = VerifyingKey::from(key);
+            hex::encode(verifying_key.to_bytes())
+        })
+    }
+    
+    /// Get HMAC key (for verification only)
+    pub fn hmac_key(&self) -> &[u8] {
+        &self.hmac_key
+    }
+}
+
+impl Default for CryptoAuthority {
+    fn default() -> Self {
+        Self::new_hmac()  // Core 1.0 compatibility
     }
 }
 
@@ -156,32 +169,46 @@ mod tests {
     
     #[test]
     fn test_hmac_deterministic() {
-        let auth1 = HmacAuthority::test_key();
-        let auth2 = HmacAuthority::test_key();
-        let msg = b"test message";
+        let auth1 = CryptoAuthority::new_hmac();
+        let auth2 = CryptoAuthority::new_hmac();
+        let msg = "test message";
         
-        let sig1 = auth1.sign(msg).unwrap();
-        let sig2 = auth2.sign(msg).unwrap();
+        let sig1 = auth1.sign(msg);
+        let sig2 = auth2.sign(msg);
         
         assert_eq!(sig1, sig2);
-    }
-    
-    #[test]
-    fn test_legacy_crypto_authority() {
-        let auth = CryptoAuthority::new_hmac().unwrap();
-        let msg = "test mission";
-        
-        let sig = auth.sign(msg).unwrap();
-        assert!(auth.verify(msg, &sig).is_ok());
+        assert!(auth1.verify(msg, &sig1, SignatureType::Hmac));
     }
     
     #[cfg(feature = "ed25519")]
     #[test]
-    fn test_ed25519() {
-        let auth = Ed25519Authority::new();
-        let msg = b"test message";
+    fn test_ed25519_sign_verify() {
+        let auth = CryptoAuthority::new_ed25519();
+        let msg = "test message";
         
-        let sig = auth.sign(msg).unwrap();
-        assert!(auth.verify(msg, &sig).is_ok());
+        let sig = auth.sign(msg);
+        assert!(auth.verify(msg, &sig, SignatureType::Ed25519));
+        
+        // Public key should exist
+        assert!(auth.public_key().is_some());
+    }
+    
+    #[cfg(feature = "ed25519")]
+    #[test]
+    fn test_dual_crypto_compatibility() {
+        let auth_hmac = CryptoAuthority::new_hmac();
+        let auth_ed = CryptoAuthority::new_ed25519();
+        let msg = "test message";
+        
+        let sig_hmac = auth_hmac.sign(msg);
+        let sig_ed = auth_ed.sign(msg);
+        
+        assert_ne!(sig_hmac, sig_ed);
+        
+        assert!(auth_hmac.verify(msg, &sig_hmac, SignatureType::Hmac));
+        assert!(auth_ed.verify(msg, &sig_ed, SignatureType::Ed25519));
+        
+        assert!(!auth_hmac.verify(msg, &sig_ed, SignatureType::Hmac));
+        assert!(!auth_ed.verify(msg, &sig_hmac, SignatureType::Ed25519));
     }
 }

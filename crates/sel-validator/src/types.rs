@@ -1,9 +1,9 @@
 //! # SEL Validator Types
-//! SEL Core 1.0 - FULLY DETERMINISTIC
-//! 🔴 NO Utc::now(), NO randomness
+//! SEL Extended 1.1 - With signature type support
 
 use serde::{Serialize, Deserialize};
-use sel_common::SEL_CORE_VERSION;
+use sel_common::SEL_EXTENDED_VERSION;
+use crate::crypto_authority::SignatureType;
 
 /// A validated action that passed sovereign validation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -14,7 +14,22 @@ pub struct ValidatedAction {
 
 /// Cryptographic proof of validation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ValidationProof(pub String);
+pub struct ValidationProof {
+    /// The signature bytes (hex-encoded)
+    pub signature: String,
+    /// Type of signature used
+    pub signature_type: SignatureType,
+}
+
+impl ValidationProof {
+    pub fn new(signature: String, signature_type: SignatureType) -> Self {
+        Self { signature, signature_type }
+    }
+    
+    pub fn as_str(&self) -> &str {
+        &self.signature
+    }
+}
 
 /// Workspace access mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,13 +57,11 @@ impl Default for ExecutionCapabilities {
 }
 
 /// A mission that has passed sovereign validation
-/// 🔴 DETERMINISTIC: No timestamps, no randomness
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidatedMission {
     pub core_version: String,
     pub capabilities: ExecutionCapabilities,
     pub validation_proof: ValidationProof,
-    /// 🔴 REMOVED: validated_at - كان يستخدم Utc::now() وغير حتمي
     pub validator_version: String,
     pub actions: Vec<ValidatedAction>,
     pub mission_hash: String,
@@ -57,12 +70,12 @@ pub struct ValidatedMission {
 impl ValidatedMission {
     pub fn new(
         capabilities: ExecutionCapabilities,
-        proof: String,
+        proof: ValidationProof,
     ) -> Self {
         Self {
-            core_version: SEL_CORE_VERSION.to_string(),
+            core_version: SEL_EXTENDED_VERSION.to_string(),
             capabilities,
-            validation_proof: ValidationProof(proof),
+            validation_proof: proof,
             validator_version: crate::VALIDATOR_VERSION.to_string(),
             actions: Vec::new(),
             mission_hash: String::new(),
@@ -71,7 +84,7 @@ impl ValidatedMission {
     
     pub fn new_with_actions(
         capabilities: ExecutionCapabilities,
-        proof: String,
+        proof: ValidationProof,
         actions: Vec<ValidatedAction>,
     ) -> Self {
         let mut mission = Self::new(capabilities, proof);
@@ -99,8 +112,16 @@ impl ValidatedMission {
         self.mission_hash = hash;
     }
     
+    pub fn validation_proof(&self) -> &ValidationProof {
+        &self.validation_proof
+    }
+    
     pub fn validation_proof_str(&self) -> &str {
-        &self.validation_proof.0
+        &self.validation_proof.signature
+    }
+    
+    pub fn signature_type(&self) -> SignatureType {
+        self.validation_proof.signature_type
     }
     
     pub fn actions(&self) -> Vec<ValidatedAction> {

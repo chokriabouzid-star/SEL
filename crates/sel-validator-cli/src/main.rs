@@ -58,7 +58,7 @@ fn validate_mission(
             "Failed to read file: {}", e
         )))?;
     
-    // Create validator
+    // Create validator - ✅ NO ? here
     let config = ValidationConfig {
         max_actions,
         strict_mode,

@@ -26,6 +26,7 @@ fn test_tick_limit_enforced() -> Result<(), SovereignError> {
         actions.join(",")
     );
 
+    // ✅ NO ? here - Validator::new doesn't return Result
     let validator = Validator::new(config);
     let validated = validator.validate(&mission_json)?;
     let mission_hash = validated.mission_hash();

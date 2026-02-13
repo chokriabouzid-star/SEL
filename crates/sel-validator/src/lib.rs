@@ -1,17 +1,13 @@
 //! # SEL Validator
-//! Sovereign Validation Authority
-//! SEL Core 1.0 Compliant
+//! SEL Extended 1.1 - Dual Crypto Support (HMAC + Ed25519)
 
 mod validator;
-pub mod crypto_authority;  // 🔴 CHANGED: private → public
+mod crypto_authority;
 mod rules;
 pub mod types;
-pub mod signature;
 
 pub use validator::{Validator, ValidationConfig};
-pub use crypto_authority::{CryptoAuthority, HmacAuthority};
-#[cfg(feature = "ed25519")]
-pub use crypto_authority::Ed25519Authority;
+pub use crypto_authority::{CryptoAuthority, SignatureType};
 pub use types::{
     ValidatedMission,
     ExecutionCapabilities,
@@ -19,7 +15,6 @@ pub use types::{
     ValidatedAction,
     ValidationProof,
 };
-pub use signature::SignatureAuthority;
 pub use sel_common::SovereignError;
 
-pub const VALIDATOR_VERSION: &str = "1.0.0";
+pub const VALIDATOR_VERSION: &str = "1.1.0-alpha";

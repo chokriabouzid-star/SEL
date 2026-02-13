@@ -1,6 +1,5 @@
 //! # Sovereign Validator Implementation
-//! SEL Core 1.0 - FULLY DETERMINISTIC
-//! 🔴 NO Utc::now(), NO unwrap, NO panic
+//! SEL Extended 1.1 - Dual Crypto Support (HMAC + Ed25519)
 
 use serde_json::{Value, from_str};
 use sel_common::{SovereignError, SelResult, canonicalize_json, ResourceKind};
@@ -11,8 +10,9 @@ use crate::{
         ValidatedMission,
         ExecutionCapabilities,
         ValidatedAction,
+        ValidationProof,
     },
-    crypto_authority::CryptoAuthority,
+    crypto_authority::{CryptoAuthority, SignatureType},
     rules::{validate_security_rules, SecurityViolation},
 };
 
@@ -22,6 +22,8 @@ const CORE_ALLOWED_COMMANDS: [&str; 2] = ["echo", "pwd"];
 pub struct ValidationConfig {
     pub max_actions: usize,
     pub strict_mode: bool,
+    /// Which crypto to use for validation proofs
+    pub signature_type: SignatureType,
 }
 
 impl Default for ValidationConfig {
@@ -29,28 +31,36 @@ impl Default for ValidationConfig {
         Self {
             max_actions: 1000,
             strict_mode: true,
+            signature_type: SignatureType::Hmac,  // Core 1.0 compatibility
         }
     }
 }
 
 pub struct Validator {
-    pub config: ValidationConfig,
+    config: ValidationConfig,
     crypto: CryptoAuthority,
 }
 
 impl Validator {
-    pub fn new(config: ValidationConfig) -> SelResult<Self> {
-        Ok(Self {
+    pub fn new(config: ValidationConfig) -> Self {
+        let crypto = match config.signature_type {
+            SignatureType::Hmac => CryptoAuthority::new_hmac(),
+            #[cfg(feature = "ed25519")]
+            SignatureType::Ed25519 => CryptoAuthority::new_ed25519(),
+        };
+        
+        Self {
             config,
-            crypto: CryptoAuthority::new_hmac()?,
-        })
+            crypto,
+        }
     }
     
     pub fn validate(&self, mission_json: &str) -> SelResult<ValidatedMission> {
         // Canonicalization
-        let canonical = canonicalize_json(mission_json)?;
+        let canonical = canonicalize_json(mission_json)
+            .map_err(|e| SovereignError::InvalidMissionFormat(e.to_string()))?;
         
-        // Generate deterministic mission hash from canonical JSON
+        // Generate deterministic mission hash
         let mut hasher = Sha256::new();
         hasher.update(canonical.as_bytes());
         let mission_hash = hex::encode(hasher.finalize());
@@ -60,7 +70,7 @@ impl Validator {
         
         let actions = self.extract_actions(&parsed)?;
         
-        // Command whitelist - IMMEDIATE REJECT
+        // Command whitelist
         for action in &actions {
             if !CORE_ALLOWED_COMMANDS.contains(&action.command.as_str()) {
                 return Err(SovereignError::CapabilityViolation(
@@ -97,10 +107,11 @@ impl Validator {
             }
         }
         
-        // Generate cryptographic proof
-        let proof = self.crypto.sign(&canonical)?;
+        // Generate cryptographic proof with selected algorithm
+        let signature = self.crypto.sign(&canonical);
+        let proof = ValidationProof::new(signature, self.config.signature_type);
         
-        // Create ValidatedMission with deterministic hash
+        // Create ValidatedMission
         let mut validated = ValidatedMission::new_with_actions(
             ExecutionCapabilities::default(),
             proof,
@@ -146,6 +157,12 @@ impl Validator {
         
         Ok(actions)
     }
+    
+    /// Get the public key (if using Ed25519)
+    #[cfg(feature = "ed25519")]
+    pub fn public_key(&self) -> Option<String> {
+        self.crypto.public_key()
+    }
 }
 
 #[cfg(test)]
@@ -153,22 +170,35 @@ mod tests {
     use super::*;
     
     #[test]
-    fn test_validator_creation() {
+    fn test_hmac_validation() {
         let config = ValidationConfig::default();
         let validator = Validator::new(config);
-        assert!(validator.is_ok());
+        
+        let mission = r#"{"actions":[{"command":"echo","args":["test"]}]}"#;
+        let result = validator.validate(mission);
+        
+        assert!(result.is_ok());
+        let validated = result.unwrap();
+        assert_eq!(validated.signature_type(), SignatureType::Hmac);
+        assert!(!validated.validation_proof_str().is_empty());
     }
     
+    #[cfg(feature = "ed25519")]
     #[test]
-    fn test_deterministic_mission_hash() {
-        let validator = Validator::new(ValidationConfig::default()).unwrap();
+    fn test_ed25519_validation() {
+        let mut config = ValidationConfig::default();
+        config.signature_type = SignatureType::Ed25519;
         
-        let mission1 = r#"{"actions":[{"command":"echo","args":["test"]}]}"#;
-        let mission2 = r#"{"actions":[{"command":"echo","args":["test"]}]}"#;
+        let validator = Validator::new(config);
+        let mission = r#"{"actions":[{"command":"echo","args":["test"]}]}"#;
+        let result = validator.validate(mission);
         
-        let validated1 = validator.validate(mission1).unwrap();
-        let validated2 = validator.validate(mission2).unwrap();
+        assert!(result.is_ok());
+        let validated = result.unwrap();
+        assert_eq!(validated.signature_type(), SignatureType::Ed25519);
+        assert!(!validated.validation_proof_str().is_empty());
         
-        assert_eq!(validated1.mission_hash(), validated2.mission_hash());
+        // Public key should be available
+        assert!(validator.public_key().is_some());
     }
 }

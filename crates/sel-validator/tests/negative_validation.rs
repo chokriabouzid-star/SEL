@@ -1,5 +1,6 @@
 //! # Negative Validation Tests
 //! SEL Core 1.0 - يجب رفض أي أمر غير echo/pwd
+//! ✅ تم إصلاح مشكلة `?` - الآن تعمل مع Validator::new()
 
 use sel_validator::{Validator, ValidationConfig};
 use sel_common::SovereignError;
@@ -8,7 +9,7 @@ use sel_common::SovereignError;
 fn test_reject_ls_command() {
     println!("\n🚫 NEGATIVE TEST: Reject 'ls' command");
     println!("=====================================");
-    
+
     let mission_json = r#"{
         "actions": [
             {
@@ -18,10 +19,11 @@ fn test_reject_ls_command() {
             }
         ]
     }"#;
-    
+
+    // ✅ لا `?` هنا - Validator::new() لا يرجع Result
     let validator = Validator::new(ValidationConfig::default());
     let result = validator.validate(mission_json);
-    
+
     match result {
         Err(SovereignError::CapabilityViolation(msg)) => {
             println!("  ✅ REJECTED: {}", msg);
@@ -38,7 +40,7 @@ fn test_reject_ls_command() {
 fn test_reject_cat_command() {
     println!("\n🚫 NEGATIVE TEST: Reject 'cat' command");
     println!("=====================================");
-    
+
     let mission_json = r#"{
         "actions": [
             {
@@ -48,10 +50,10 @@ fn test_reject_cat_command() {
             }
         ]
     }"#;
-    
+
     let validator = Validator::new(ValidationConfig::default());
     let result = validator.validate(mission_json);
-    
+
     match result {
         Err(SovereignError::CapabilityViolation(msg)) => {
             println!("  ✅ REJECTED: {}", msg);
@@ -68,7 +70,7 @@ fn test_reject_cat_command() {
 fn test_reject_path_traversal() {
     println!("\n🚫 NEGATIVE TEST: Reject path traversal");
     println!("=====================================");
-    
+
     let mission_json = r#"{
         "actions": [
             {
@@ -78,10 +80,10 @@ fn test_reject_path_traversal() {
             }
         ]
     }"#;
-    
+
     let validator = Validator::new(ValidationConfig::default());
     let result = validator.validate(mission_json);
-    
+
     match result {
         Err(SovereignError::WorkspaceViolation(path)) => {
             println!("  ✅ REJECTED: Path traversal detected: {}", path);
@@ -98,7 +100,7 @@ fn test_reject_path_traversal() {
 fn test_accept_echo_pwd_only() {
     println!("\n✅ POSITIVE TEST: Accept echo/pwd only");
     println!("=====================================");
-    
+
     let mission_json = r#"{
         "actions": [
             {
@@ -113,10 +115,10 @@ fn test_accept_echo_pwd_only() {
             }
         ]
     }"#;
-    
+
     let validator = Validator::new(ValidationConfig::default());
     let result = validator.validate(mission_json);
-    
+
     assert!(result.is_ok(), "✅ echo/pwd should be accepted");
     println!("  ✅ ACCEPTED: echo and pwd are allowed in Core 1.0");
     println!("=====================================\n");
