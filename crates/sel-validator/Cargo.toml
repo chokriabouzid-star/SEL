@@ -1,24 +1,21 @@
 [package]
 name = "sel-validator"
-version = "1.1.0-alpha"
-edition.workspace = true
-rust-version.workspace = true
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.70.0"
 
 [dependencies]
 sel-common = { path = "../sel-common" }
-serde.workspace = true
-serde_json.workspace = true
-sha2.workspace = true
-hex.workspace = true
-thiserror.workspace = true
-hmac.workspace = true
-ed25519-dalek = { workspace = true, optional = true }
-rand = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+hmac = { workspace = true }
 
 [dev-dependencies]
-tempfile.workspace = true
+tempfile = { workspace = true }
 
 [features]
 default = ["hmac"]
 hmac = []
-ed25519 = ["dep:ed25519-dalek", "dep:rand"]

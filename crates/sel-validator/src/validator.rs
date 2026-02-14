@@ -1,5 +1,5 @@
 //! # Sovereign Validator Implementation
-//! SEL Extended 1.1 - Dual Crypto Support (HMAC + Ed25519)
+//! SEL Core 1.0 - HMAC only, no Ed25519
 
 use serde_json::{Value, from_str};
 use sel_common::{SovereignError, SelResult, canonicalize_json, ResourceKind};
@@ -12,18 +12,16 @@ use crate::{
         ValidatedAction,
         ValidationProof,
     },
-    crypto_authority::{CryptoAuthority, SignatureType},
+    crypto_authority::CryptoAuthority,
     rules::{validate_security_rules, SecurityViolation},
 };
 
-const CORE_ALLOWED_COMMANDS: [&str; 2] = ["echo", "pwd"];
+const ALLOWED_COMMANDS: [&str; 2] = ["echo", "pwd"];
 
 #[derive(Debug, Clone)]
 pub struct ValidationConfig {
     pub max_actions: usize,
     pub strict_mode: bool,
-    /// Which crypto to use for validation proofs
-    pub signature_type: SignatureType,
 }
 
 impl Default for ValidationConfig {
@@ -31,7 +29,6 @@ impl Default for ValidationConfig {
         Self {
             max_actions: 1000,
             strict_mode: true,
-            signature_type: SignatureType::Hmac,  // Core 1.0 compatibility
         }
     }
 }
@@ -43,15 +40,9 @@ pub struct Validator {
 
 impl Validator {
     pub fn new(config: ValidationConfig) -> Self {
-        let crypto = match config.signature_type {
-            SignatureType::Hmac => CryptoAuthority::new_hmac(),
-            #[cfg(feature = "ed25519")]
-            SignatureType::Ed25519 => CryptoAuthority::new_ed25519(),
-        };
-        
         Self {
             config,
-            crypto,
+            crypto: CryptoAuthority::new(),
         }
     }
     
@@ -70,9 +61,9 @@ impl Validator {
         
         let actions = self.extract_actions(&parsed)?;
         
-        // Command whitelist
+        // ✅ COMMAND WHITELIST - يحدث أولاً
         for action in &actions {
-            if !CORE_ALLOWED_COMMANDS.contains(&action.command.as_str()) {
+            if !ALLOWED_COMMANDS.contains(&action.command.as_str()) {
                 return Err(SovereignError::CapabilityViolation(
                     format!("Command not allowed in SEL Core 1.0: '{}'. Only 'echo' and 'pwd' are permitted.", 
                         action.command)
@@ -89,16 +80,12 @@ impl Validator {
             });
         }
         
-        // Security rules
+        // ✅ SECURITY RULES - path traversal and dangerous patterns only
         if self.config.strict_mode {
             if let Some(violation) = validate_security_rules(&actions) {
                 return match violation {
                     SecurityViolation::PathTraversal(path) => 
                         Err(SovereignError::WorkspaceViolation(path)),
-                    SecurityViolation::ForbiddenCommand(cmd) =>
-                        Err(SovereignError::CapabilityViolation(
-                            format!("Security violation: command '{}' is forbidden", cmd)
-                        )),
                     SecurityViolation::DangerousPattern(pattern) =>
                         Err(SovereignError::ValidationFailed(
                             format!("Dangerous pattern detected: {}", pattern)
@@ -107,9 +94,9 @@ impl Validator {
             }
         }
         
-        // Generate cryptographic proof with selected algorithm
+        // Generate HMAC proof
         let signature = self.crypto.sign(&canonical);
-        let proof = ValidationProof::new(signature, self.config.signature_type);
+        let proof = ValidationProof::new(signature);
         
         // Create ValidatedMission
         let mut validated = ValidatedMission::new_with_actions(
@@ -157,12 +144,6 @@ impl Validator {
         
         Ok(actions)
     }
-    
-    /// Get the public key (if using Ed25519)
-    #[cfg(feature = "ed25519")]
-    pub fn public_key(&self) -> Option<String> {
-        self.crypto.public_key()
-    }
 }
 
 #[cfg(test)]
@@ -179,26 +160,38 @@ mod tests {
         
         assert!(result.is_ok());
         let validated = result.unwrap();
-        assert_eq!(validated.signature_type(), SignatureType::Hmac);
         assert!(!validated.validation_proof_str().is_empty());
     }
     
-    #[cfg(feature = "ed25519")]
     #[test]
-    fn test_ed25519_validation() {
-        let mut config = ValidationConfig::default();
-        config.signature_type = SignatureType::Ed25519;
-        
+    fn test_reject_cat() {
+        let config = ValidationConfig::default();
         let validator = Validator::new(config);
-        let mission = r#"{"actions":[{"command":"echo","args":["test"]}]}"#;
+        
+        let mission = r#"{"actions":[{"command":"cat","args":["file.txt"]}]}"#;
         let result = validator.validate(mission);
         
-        assert!(result.is_ok());
-        let validated = result.unwrap();
-        assert_eq!(validated.signature_type(), SignatureType::Ed25519);
-        assert!(!validated.validation_proof_str().is_empty());
+        assert!(result.is_err());
+        match result {
+            Err(SovereignError::CapabilityViolation(msg)) => {
+                assert!(msg.contains("cat"));
+            }
+            _ => panic!("Expected CapabilityViolation"),
+        }
+    }
+    
+    #[test]
+    fn test_reject_path_traversal() {
+        let config = ValidationConfig::default();
+        let validator = Validator::new(config);
         
-        // Public key should be available
-        assert!(validator.public_key().is_some());
+        let mission = r#"{"actions":[{"command":"echo","args":["../../../etc/passwd"]}]}"#;
+        let result = validator.validate(mission);
+        
+        assert!(result.is_err());
+        match result {
+            Err(SovereignError::WorkspaceViolation(_)) => {}
+            _ => panic!("Expected WorkspaceViolation"),
+        }
     }
 }

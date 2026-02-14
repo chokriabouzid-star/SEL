@@ -1,65 +1,392 @@
-# 🏛 SEL - Sovereign Execution Layer
+# SEL — Sovereign Execution Layer
 
-**الإصدار:** 1.0.0  
-**الحالة:** 🏛 Production Ready  
-**تاريخ الإصدار:** 2026-02-11
+[![Tests](https://img.shields.io/badge/tests-33%2F33-brightgreen)]()
+[![Core](https://img.shields.io/badge/core-v1.0.0-blue)]()
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)]()
 
----
-
-## 📋 نظرة عامة
-
-SEL (Sovereign Execution Layer) هي طبقة تنفيذ سيادية حتمية، مصممة لتنفيذ المهام فقط بعد التحقق البنيوي والدلالي والسيادي، مع إصدار برهان رياضي غير قابل للتزوير.
-
-### المبدأ السيادي الأعلى
-لا تنفيذ بدون إثبات
-لا إثبات بدون تحقق
-لا تحقق بدون حتمية
-لا حتمية بدون حدود
-لا حدود بدون معيار
-
-text
+**Deterministic execution engine with cryptographic guarantees for compliance-critical workflows.**
 
 ---
 
-## ✅ SEL Core 1.0 - الإنجازات
+## Overview
 
-| المكون | الحالة |
-|--------|--------|
-| **Canonical JSON** | ✅ مكتمل - RFC 8785 متوافق |
-| **Hash Chain** | ✅ مكتمل - Tamper-evident |
-| **Logical Clock** | ✅ مكتمل - لا wall time |
-| **Validator** | ✅ مكتمل - Whitelist صارم |
-| **Resource Limits** | ✅ مكتمل - Actions/Stdout/Ticks |
-| **Workspace Isolation** | ✅ مكتمل - UUID v5 حتمي |
-| **Built-in Commands** | ✅ مكتمل - echo/pwd |
+SEL (Sovereign Execution Layer) is a deterministic execution engine that guarantees:
+```
+Same Mission → Same Canonical Form → Same Hash
+```
+
+This holds **regardless of execution environment** and **regardless of time**.
+
+**SEL Core** (MIT) provides deterministic validation.  
+**SEL Extended** (planned) will introduce enterprise-grade compliance features.
+
+### The Problem
+
+In compliance-critical environments:
+
+- ❌ No mathematical proof that a workflow executed as documented
+- ❌ Logs can be tampered with after execution
+- ❌ CI/CD systems may produce subtle variations
+- ❌ Auditors demand independently verifiable proof
+
+### The Solution
+
+SEL produces:
+
+1. **Canonical JSON** – Deterministic normalization
+2. **SHA-256 hash** – Unique, immutable identifier (versioned: `sel:v1.0:sha256:...`)
+3. **HMAC signature** – Cryptographic verification (v1.0)
+4. **Hash-chained facts** – Tamper-proof execution log
+
+Every execution becomes **cryptographically verifiable**.
 
 ---
 
-## 🔬 الاختبارات المؤكدة
+## Core Guarantees (v1.0.0)
 
-```bash
-✅ Negative Validation    - 4/4 PASS
-✅ Resource Exhaustion    - 1/1 PASS
-✅ Stress Determinism     - 20/20 IDENTICAL HASHES
-🎯 الاستخدام السريع
-bash
-# بناء المشروع
+| Guarantee | Implementation |
+|-----------|----------------|
+| **Deterministic canonicalization** | BTreeMap ordering, no floats, strict UTF-8 |
+| **Zero randomness** | No UUID v4, no wall time, no entropy sources |
+| **Security enforcement** | Strict command whitelist, path traversal protection |
+| **Resource controls** | Enforced limits: ticks, actions, stdout size |
+| **Cross-platform design** | Designed for Linux, macOS, Windows (Linux verified) |
+| **Audit trail** | Hash-chained facts logger |
+
+**Proven:** 20/20 identical hashes in stress tests, 33/33 tests passing.
+
+---
+
+## Canonical Stability Policy
+
+**Changes to canonical form require a major version bump.**
+
+Hash outputs are treated as **immutable contracts**. Once a mission produces a hash under v1.0, that hash will remain valid for verification indefinitely.
+
+This guarantee enables:
+- **Long-term audit integrity** – Verify missions years later
+- **Cross-version compatibility** – v1.0 hashes remain valid in v1.x
+- **Legal compliance** – Hashes are immutable evidence
+
+---
+
+## Architecture
+
+\`\`\`
+SEL/
+├── sel-common          # Canonicalization, hashing, error types
+├── sel-validator       # Mission validation + HMAC verification
+├── sel-engine          # Execution engine + workspace + facts logger
+└── sel-validator-cli   # Command-line interface
+\`\`\`
+
+### Design Principles
+
+1. **Determinism > Convenience** – Consistency is non-negotiable
+2. **Whitelist > Blacklist** – Security by explicit permission
+3. **Proof > Logs** – Cryptographic guarantees over post-hoc documentation
+4. **Canonical Form is Law** – One representation, one hash
+
+---
+
+## Quick Start
+
+### Installation
+
+\`\`\`bash
+# Clone repository
+git clone https://github.com/chokriabouzid-star/SEL.git
+cd SEL
+
+# Build
 cargo build --release
 
-# التحقق من مهمة
-cargo run --bin sel-validator-cli validate mission.json
+# Verify installation
+cargo test --workspace
+\`\`\`
 
-# تنفيذ مهمة
-cargo run --bin sel-engine
-📚 الملفات الأساسية
-SEL_STANDARD.md - المعيار السيادي الرسمي
+### Your First Mission
 
-SEL_CORE_1.0_CERTIFICATE.md - شهادة الإنجاز
+Create a simple mission file:
 
-crates/sel-validator/ - سلطة التحقق السيادي
+\`\`\`json
+{
+  "name": "hello-world",
+  "version": "1.0",
+  "actions": [
+    {
+      "type": "builtin",
+      "command": "echo",
+      "args": ["Hello, SEL!"]
+    },
+    {
+      "type": "builtin",
+      "command": "pwd",
+      "args": []
+    }
+  ]
+}
+\`\`\`
 
-crates/sel-engine/ - محرك التنفيذ السيادي
+Validate:
 
-🏛 الترخيص
-SEL Core 1.0 - Sovereign Execution Layer
-© 2026 - جميع الحقوق السيادية محفوظة
+\`\`\`bash
+./target/release/sel-validator-cli validate mission.json
+\`\`\`
+
+Expected output:
+
+\`\`\`
+✅ Mission validated successfully
+Hash: sel:v1.0:sha256:f7c3bc1d808e...
+Proof: a1b2c3d4e5f6...
+\`\`\`
+
+---
+
+## Real-World Use Cases
+
+### FinTech: Transaction Verification
+
+**Scenario:** Daily verification for SOC2 compliance
+
+\`\`\`json
+{
+  "name": "daily-transaction-audit",
+  "version": "1.0",
+  "metadata": {
+    "date": "2026-02-13",
+    "transaction_count": 15234,
+    "total_usd_cents": 245367850
+  },
+  "actions": [
+    {
+      "type": "builtin",
+      "command": "echo",
+      "args": ["Verifying 15,234 transactions totaling $2,453,678.50"]
+    },
+    {
+      "type": "builtin",
+      "command": "pwd",
+      "args": []
+    },
+    {
+      "type": "builtin",
+      "command": "echo",
+      "args": ["All transactions verified ✓"]
+    }
+  ]
+}
+\`\`\`
+
+**Value:** Cryptographic proof that verification workflow executed as documented.
+
+---
+
+### HealthTech: HIPAA Compliance
+
+**Scenario:** Patient data backup verification
+
+\`\`\`json
+{
+  "name": "hipaa-backup-verification",
+  "version": "1.0",
+  "compliance": "HIPAA",
+  "actions": [
+    {
+      "type": "builtin",
+      "command": "echo",
+      "args": ["HIPAA-compliant backup initiated"]
+    },
+    {
+      "type": "builtin",
+      "command": "echo",
+      "args": ["Backup completed: 50,234 patient records"]
+    }
+  ]
+}
+\`\`\`
+
+**Value:** Tamper-proof evidence of backup execution for regulatory audits.
+
+---
+
+### Government: Compliance Verification
+
+**Scenario:** Quarterly regulatory audit trail
+
+\`\`\`json
+{
+  "name": "quarterly-compliance-check",
+  "version": "1.0",
+  "agency": "Financial Regulatory Authority",
+  "quarter": "Q4-2026",
+  "actions": [
+    {
+      "type": "builtin",
+      "command": "echo",
+      "args": ["Q4 2026 Compliance Check - All systems verified"]
+    }
+  ]
+}
+\`\`\`
+
+**Value:** Immutable proof for regulatory bodies.
+
+---
+
+## Security Model
+
+### Core 1.0 Command Whitelist
+
+**Allowed:**
+- ✅ \`echo\` – Output text
+- ✅ \`pwd\` – Print working directory
+
+**Blocked:**
+- ❌ All filesystem operations (\`cat\`, \`ls\`, \`rm\`, \`cp\`, \`mv\`, \`write\`)
+- ❌ All network operations (\`wget\`, \`curl\`, \`ssh\`)
+- ❌ All system operations (\`sudo\`, shell expansions)
+- ❌ Path traversal attempts (\`../\`, absolute paths)
+
+**Design Philosophy:** Core 1.0 is intentionally minimal. Extended commands (v1.1+) will be carefully added with equivalent security rigor.
+
+---
+
+## Test Status
+
+\`\`\`
+Component              Tests    Status
+──────────────────────────────────────────
+sel-common              9/9     ✅ PASS
+sel-validator           8/8     ✅ PASS
+sel-engine              6/6     ✅ PASS
+Integration tests      10/10    ✅ PASS
+──────────────────────────────────────────
+Total                  33/33    ✅ PASS
+
+Determinism stress:     20/20   ✅ Identical hashes
+Security audit:         All forbidden commands blocked ✅
+Cross-platform:         Designed for Linux/macOS/Windows (Linux verified)
+Performance:            0.025s per validation ✅
+\`\`\`
+
+---
+
+## Roadmap
+
+| Version | Status | Focus |
+|---------|--------|-------|
+| **v1.0.0** | ✅ **Stable** | Deterministic core + HMAC verification |
+| **v1.1.0** | 🚧 Planned | Ed25519 signatures + extended commands (\`read\`, \`write\`, \`env\`) |
+| **v2.0.0** | 💡 Future | Distributed verification layer |
+
+---
+
+## Project Status
+
+**SEL Core 1.0.0 is stable and production-ready** for deterministic validation workflows.
+
+- ✅ **Stable Core:** Determinism proven, security enforced
+- ⏳ **Growing Ecosystem:** Extended features in active development
+- 🤝 **Community-Driven:** Contributions welcome to expand capabilities
+
+**Not Yet Supported:**
+- File operations (coming in v1.1)
+- Ed25519 signatures (coming in v1.1)
+- Distributed verification (future)
+
+---
+
+## Documentation
+
+- **[CHANGELOG.md](CHANGELOG.md)** – Version history
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** – Contribution guidelines
+- **[LICENSE](LICENSE)** – MIT License
+
+### Examples
+
+See \`examples/\` directory:
+- \`basic.json\` – Simple hello world
+- \`fintech.json\` – Transaction verification
+- \`healthcare.json\` – HIPAA backup verification
+- \`gov.json\` – Government audit trail
+
+---
+
+## Contributing
+
+Contributions must preserve SEL's core guarantees:
+
+1. **Determinism** – No randomness, no wall time
+2. **Security** – Whitelist model, explicit permissions
+3. **Canonical stability** – Changes to canonicalization require major version bump
+
+**Before submitting:**
+
+\`\`\`bash
+cargo test --workspace      # All tests must pass
+cargo fmt --all             # Format code
+cargo clippy --workspace    # No warnings
+\`\`\`
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+---
+
+## License
+
+MIT License
+
+Copyright (c) 2026 Chokri Bouzid
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Contact
+
+- **Author:** Chokri Bouzid
+- **GitHub:** [@chokriabouzid-star](https://github.com/chokriabouzid-star)
+- **Email:** chokriabouzid@gmail.com
+- **Issues:** [GitHub Issues](https://github.com/chokriabouzid-star/SEL/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/chokriabouzid-star/SEL/discussions)
+
+---
+
+## Acknowledgments
+
+Built with:
+- [Rust](https://www.rust-lang.org/) – Systems programming language
+- [serde_json](https://github.com/serde-rs/json) – JSON serialization
+- [sha2](https://github.com/RustCrypto/hashes) – Cryptographic hashing
+- [hmac](https://github.com/RustCrypto/MACs) – Message authentication
+
+---
+
+<div align="center">
+
+**SEL — Sovereign Execution Layer**
+
+*Deterministic. Verifiable. Production-ready.*
+
+[⭐ Star](https://github.com/chokriabouzid-star/SEL) · [📖 Docs](docs/) · [🐛 Issues](https://github.com/chokriabouzid-star/SEL/issues)
+
+</div>

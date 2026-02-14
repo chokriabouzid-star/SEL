@@ -58,7 +58,7 @@ fn validate_mission(
             "Failed to read file: {}", e
         )))?;
     
-    // Create validator - ✅ NO ? here
+    // Create validator
     let config = ValidationConfig {
         max_actions,
         strict_mode,
@@ -75,7 +75,15 @@ fn validate_mission(
     println!("   • Validator: {}", validated.validator_version());
     println!("   • Workspace Mode: {:?}", validated.workspace_mode());
     println!("   • Actions: {}", validated.actions().len());
-    println!("   • Proof: {}...", &validated.validation_proof_str()[..16.min(64)]);
+    
+    // ✅ إصلاح clippy warning: 16.min(64) → 16
+    let proof = validated.validation_proof_str();
+    let truncated = if proof.len() > 16 {
+        &proof[..16]
+    } else {
+        proof
+    };
+    println!("   • Proof: {}...", truncated);
     
     Ok(validated)
 }

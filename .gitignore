@@ -1,41 +1,23 @@
-# Generated files
+# Rust
 /target/
 **/*.rs.bk
-*.log
-*.lock
-*.bak
-*.backup
-*.old
-*.orig
+Cargo.lock
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
-*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Backup directories
-.backup_*/
-**/backup_*/
+# Testing
+/tmp/
+*.log
 
 # Build artifacts
-**/Cargo.lock
-!Cargo.lock  # استثناء root Cargo.lock
-
-# Fuzz artifacts
-fuzz/artifacts/
-fuzz/corpus/
-fuzz/target/
-
-# Logs
-logs/
-**/*.log
-
-# Temporary
-tmp/
-temp/
+**/*.o
+**/*.so
+**/*.dylib

@@ -1,0 +1,26 @@
+{
+  "name": "daily-transaction-audit",
+  "version": "1.0",
+  "metadata": {
+    "date": "2026-02-13",
+    "transaction_count": 15234,
+    "total_usd_cents": 245367850
+  },
+  "actions": [
+    {
+      "type": "builtin",
+      "command": "echo",
+      "args": ["Verifying 15,234 transactions totaling $2,453,678.50"]
+    },
+    {
+      "type": "builtin",
+      "command": "pwd",
+      "args": []
+    },
+    {
+      "type": "builtin",
+      "command": "echo",
+      "args": ["All transactions verified ✓"]
+    }
+  ]
+}

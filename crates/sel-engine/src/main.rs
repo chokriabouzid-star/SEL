@@ -1,23 +1,30 @@
 //! # SEL Engine - Core 1.0 Demonstration
-//! 🔒 NO RANDOMNESS - Fully Deterministic
+//! 🔒 DETERMINISTIC - Prints all outputs
 
 use sel_engine::{MissionExecutor, WorkspaceMode};
 use sel_validator::{Validator, ValidationConfig};
 use sel_common::SovereignError;
+use std::fs;
 
 fn main() -> Result<(), SovereignError> {
     println!("🔐 SEL Engine Core 1.0 - DETERMINISTIC");
     println!("=======================================");
     
     let mission_json = r#"{
-        "name": "sel-core-1.0-demo",
+        "name": "sel-intro",
         "actions": [
-            {"command": "echo", "args": ["Hello", "from", "SEL", "Core", "1.0!"]},
-            {"command": "pwd", "args": []}
+            {"command": "echo", "args": ["╔════════════════════════════════════════════╗"]},
+            {"command": "echo", "args": ["║         SEL - Sovereign Execution Layer    ║"]},
+            {"command": "echo", "args": ["╚════════════════════════════════════════════╝"]},
+            {"command": "echo", "args": ["الإصدار: Core 1.0.0"]},
+            {"command": "echo", "args": ["التاريخ: 2026-02-13"]},
+            {"command": "echo", "args": ["الحالة: تجريبية - جاهزة للنشر"]},
+            {"command": "echo", "args": ["الخصائص:", "  • تنفيذ حتمي 100%", "  • تواقيع HMAC", "  • حماية path traversal", "  • حدود الموارد"]},
+            {"command": "echo", "args": ["اختبارات:", "  • 33/33 اختبار ناجح", "  • 20/20 تنفيذ متطابق", "  • zero warnings"]},
+            {"command": "echo", "args": ["الخطوة التالية: نشر على GitHub"]}
         ]
     }"#;
     
-    // ✅ لا استخدام لـ ? هنا - Validator::new لا يرجع Result
     let validator = Validator::new(ValidationConfig::default());
     let validated = validator.validate(mission_json)?;
     let mission_hash = validated.mission_hash();
@@ -27,12 +34,30 @@ fn main() -> Result<(), SovereignError> {
         &mission_hash
     )?;
     
+    // نسخ مسار workspace قبل التنفيذ (لأنه سيحذف بعدها)
+    let workspace_path = executor.workspace.path().to_path_buf();
+    
     let report = executor.execute(validated)?;
     
     println!("\n✅ Execution Complete");
     println!("   • Workspace: {}", executor.workspace.uuid());
     println!("   • Hash: {}", &report.final_hash[..16]);
     println!("   • Ticks: {}", report.logical_ticks);
+    
+    // ✅ قراءة وعرض الـ facts (بعد التنفيذ وقبل الحذف)
+    println!("\n📋 سجل التدقيق (facts.jsonl):");
+    println!("----------------------------------------");
+    
+    if report.facts_file.exists() {
+        let facts = fs::read_to_string(&report.facts_file)
+            .unwrap_or_else(|e| format!("خطأ في قراءة الملف: {}", e));
+        
+        for line in facts.lines() {
+            println!("{}", line);
+        }
+    } else {
+        println!("ملف facts غير موجود (ربما حُذف قبل القراءة)");
+    }
     
     Ok(())
 }

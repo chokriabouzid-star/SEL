@@ -1,0 +1,16 @@
+{
+  "name": "hello-world",
+  "version": "1.0",
+  "actions": [
+    {
+      "type": "builtin",
+      "command": "echo",
+      "args": ["Hello, SEL!"]
+    },
+    {
+      "type": "builtin",
+      "command": "pwd",
+      "args": []
+    }
+  ]
+}

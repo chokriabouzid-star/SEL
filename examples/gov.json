@@ -1,0 +1,13 @@
+{
+  "name": "quarterly-compliance-check",
+  "version": "1.0",
+  "agency": "Financial Regulatory Authority",
+  "quarter": "Q4-2026",
+  "actions": [
+    {
+      "type": "builtin",
+      "command": "echo",
+      "args": ["Q4 2026 Compliance Check - All systems verified"]
+    }
+  ]
+}

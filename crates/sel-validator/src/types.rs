@@ -1,9 +1,8 @@
 //! # SEL Validator Types
-//! SEL Extended 1.1 - With signature type support
+//! SEL Core 1.0 - No signature types (HMAC only)
 
 use serde::{Serialize, Deserialize};
-use sel_common::SEL_EXTENDED_VERSION;
-use crate::crypto_authority::SignatureType;
+use sel_common::SEL_VERSION;
 
 /// A validated action that passed sovereign validation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -12,22 +11,17 @@ pub struct ValidatedAction {
     pub args: Vec<String>,
 }
 
-/// Cryptographic proof of validation
+/// Cryptographic proof of validation (HMAC only)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ValidationProof {
-    /// The signature bytes (hex-encoded)
-    pub signature: String,
-    /// Type of signature used
-    pub signature_type: SignatureType,
-}
+pub struct ValidationProof(pub String);
 
 impl ValidationProof {
-    pub fn new(signature: String, signature_type: SignatureType) -> Self {
-        Self { signature, signature_type }
+    pub fn new(signature: String) -> Self {
+        Self(signature)
     }
     
     pub fn as_str(&self) -> &str {
-        &self.signature
+        &self.0
     }
 }
 
@@ -73,7 +67,7 @@ impl ValidatedMission {
         proof: ValidationProof,
     ) -> Self {
         Self {
-            core_version: SEL_EXTENDED_VERSION.to_string(),
+            core_version: SEL_VERSION.to_string(),
             capabilities,
             validation_proof: proof,
             validator_version: crate::VALIDATOR_VERSION.to_string(),
@@ -117,11 +111,7 @@ impl ValidatedMission {
     }
     
     pub fn validation_proof_str(&self) -> &str {
-        &self.validation_proof.signature
-    }
-    
-    pub fn signature_type(&self) -> SignatureType {
-        self.validation_proof.signature_type
+        &self.validation_proof.0
     }
     
     pub fn actions(&self) -> Vec<ValidatedAction> {
