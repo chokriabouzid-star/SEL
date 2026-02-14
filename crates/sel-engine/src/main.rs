@@ -35,8 +35,7 @@ fn main() -> Result<(), SovereignError> {
     )?;
     
     // نسخ مسار workspace قبل التنفيذ (لأنه سيحذف بعدها)
-    let workspace_path = executor.workspace.path().to_path_buf();
-    
+    let _workspace_path = executor.workspace.path().to_path_buf();    
     let report = executor.execute(validated)?;
     
     println!("\n✅ Execution Complete");
