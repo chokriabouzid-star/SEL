@@ -35,12 +35,8 @@ fn main() -> Result<(), SovereignError> {
     )?;
     
     // نسخ مسار workspace قبل التنفيذ (لأنه سيحذف بعدها)
-<<<<<<< HEAD
     let _workspace_path = executor.workspace.path().to_path_buf();    
-=======
-    let _workspace_path = executor.workspace.path().to_path_buf();
     
->>>>>>> c429101 (fix: remove unused variable warning)
     let report = executor.execute(validated)?;
     
     println!("\n✅ Execution Complete");
