@@ -5,14 +5,14 @@
 pub mod engine;
 
 pub use engine::{
-    MissionExecutor,
-    Workspace,
-    LogicalClock,
-    FactsLogger,
-    ExecutionReport,
     ActionResult,
-    WorkspaceMode,
+    ExecutionReport,
+    ExecutorError, // 👈 Added for compatibility
+    FactsLogger,
+    LogicalClock,
+    MissionExecutor,
     ResourceLimits,
-    ExecutorError,      // 👈 Added for compatibility
+    Workspace,
+    WorkspaceMode,
 };
 pub use sel_common::SovereignError;

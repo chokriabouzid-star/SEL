@@ -9,19 +9,19 @@ pub struct ResourceLimits {
     /// Maximum number of actions per mission
     /// Core 1.0 default: 1000
     pub max_actions: usize,
-    
+
     /// Maximum logical ticks per execution
     /// Core 1.0 default: 10,000
     pub max_ticks: u64,
-    
+
     /// Maximum stdout bytes per mission
     /// Core 1.0 default: 1,048,576 (1 MiB)
     pub max_stdout_bytes: usize,
-    
+
     /// Maximum stderr bytes per mission
     /// Core 1.0 default: 102,400 (100 KiB)
     pub max_stderr_bytes: usize,
-    
+
     /// Maximum facts logged per mission
     /// Core 1.0 default: 10,000
     pub max_facts: usize,
@@ -34,8 +34,8 @@ impl Default for ResourceLimits {
         Self {
             max_actions: 1000,
             max_ticks: 10_000,
-            max_stdout_bytes: 1_048_576,  // 1 MiB
-            max_stderr_bytes: 102_400,    // 100 KiB
+            max_stdout_bytes: 1_048_576, // 1 MiB
+            max_stderr_bytes: 102_400,   // 100 KiB
             max_facts: 10_000,
         }
     }
@@ -59,7 +59,7 @@ impl ResourceLimits {
             max_facts,
         }
     }
-    
+
     /// Core 1.0 compliant limits
     /// Use this to ensure SEL Core compliance
     pub fn core_compliant() -> Self {
@@ -70,7 +70,7 @@ impl ResourceLimits {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_default_limits_core_compliant() {
         let limits = ResourceLimits::default();
@@ -80,7 +80,7 @@ mod tests {
         assert_eq!(limits.max_stderr_bytes, 102_400);
         assert_eq!(limits.max_facts, 10_000);
     }
-    
+
     #[test]
     fn test_core_compliant_constructor() {
         let limits = ResourceLimits::core_compliant();

@@ -1,8 +1,8 @@
 //! SEL Engine Core Types
 //! SEL Core 1.0 Compliant
 
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use serde::{Serialize, Deserialize};
 
 /// Result of executing a single action
 #[derive(Debug, Clone, Serialize, Deserialize)]

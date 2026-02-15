@@ -2,8 +2,8 @@
 //! SEL Core 1.0 - يجب رفض أي أمر غير echo/pwd
 //! ✅ تم إصلاح مشكلة `?` - الآن تعمل مع Validator::new()
 
-use sel_validator::{Validator, ValidationConfig};
 use sel_common::SovereignError;
+use sel_validator::{ValidationConfig, Validator};
 
 #[test]
 fn test_reject_ls_command() {
@@ -32,7 +32,7 @@ fn test_reject_ls_command() {
         Ok(_) => panic!("❌ 'ls' command should be rejected"),
         Err(e) => panic!("❌ Wrong error type: {}", e),
     }
-    
+
     println!("=====================================\n");
 }
 
@@ -62,7 +62,7 @@ fn test_reject_cat_command() {
         Ok(_) => panic!("❌ 'cat' command should be rejected"),
         Err(e) => panic!("❌ Wrong error type: {}", e),
     }
-    
+
     println!("=====================================\n");
 }
 
@@ -92,7 +92,7 @@ fn test_reject_path_traversal() {
         Ok(_) => panic!("❌ Path traversal should be rejected"),
         Err(e) => panic!("❌ Wrong error type: {}", e),
     }
-    
+
     println!("=====================================\n");
 }
 

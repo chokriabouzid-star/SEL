@@ -1,19 +1,14 @@
 //! # Sovereign Validator Implementation
 //! SEL Core 1.0 - HMAC only, no Ed25519
 
-use serde_json::{Value, from_str};
-use sel_common::{SovereignError, SelResult, canonicalize_json, ResourceKind};
-use sha2::{Sha256, Digest};
+use sel_common::{canonicalize_json, ResourceKind, SelResult, SovereignError};
+use serde_json::{from_str, Value};
+use sha2::{Digest, Sha256};
 
 use crate::{
-    types::{
-        ValidatedMission,
-        ExecutionCapabilities,
-        ValidatedAction,
-        ValidationProof,
-    },
     crypto_authority::CryptoAuthority,
     rules::{validate_security_rules, SecurityViolation},
+    types::{ExecutionCapabilities, ValidatedAction, ValidatedMission, ValidationProof},
 };
 
 const ALLOWED_COMMANDS: [&str; 2] = ["echo", "pwd"];
@@ -45,22 +40,22 @@ impl Validator {
             crypto: CryptoAuthority::new(),
         }
     }
-    
+
     pub fn validate(&self, mission_json: &str) -> SelResult<ValidatedMission> {
         // Canonicalization
         let canonical = canonicalize_json(mission_json)
             .map_err(|e| SovereignError::InvalidMissionFormat(e.to_string()))?;
-        
+
         // Generate deterministic mission hash
         let mut hasher = Sha256::new();
         hasher.update(canonical.as_bytes());
         let mission_hash = hex::encode(hasher.finalize());
-        
+
         let parsed: Value = from_str(&canonical)
             .map_err(|e| SovereignError::InvalidMissionFormat(e.to_string()))?;
-        
+
         let actions = self.extract_actions(&parsed)?;
-        
+
         // ✅ COMMAND WHITELIST - يحدث أولاً
         for action in &actions {
             if !ALLOWED_COMMANDS.contains(&action.command.as_str()) {
@@ -70,7 +65,7 @@ impl Validator {
                 ));
             }
         }
-        
+
         // Enforce max_actions
         if actions.len() > self.config.max_actions {
             return Err(SovereignError::ResourceExhaustion {
@@ -79,54 +74,59 @@ impl Validator {
                 requested: actions.len() as u64,
             });
         }
-        
+
         // ✅ SECURITY RULES - path traversal and dangerous patterns only
         if self.config.strict_mode {
             if let Some(violation) = validate_security_rules(&actions) {
                 return match violation {
-                    SecurityViolation::PathTraversal(path) => 
-                        Err(SovereignError::WorkspaceViolation(path)),
-                    SecurityViolation::DangerousPattern(pattern) =>
-                        Err(SovereignError::ValidationFailed(
-                            format!("Dangerous pattern detected: {}", pattern)
-                        )),
+                    SecurityViolation::PathTraversal(path) => {
+                        Err(SovereignError::WorkspaceViolation(path))
+                    }
+                    SecurityViolation::DangerousPattern(pattern) => {
+                        Err(SovereignError::ValidationFailed(format!(
+                            "Dangerous pattern detected: {}",
+                            pattern
+                        )))
+                    }
                 };
             }
         }
-        
+
         // Generate HMAC proof
         let signature = self.crypto.sign(&canonical);
         let proof = ValidationProof::new(signature);
-        
+
         // Create ValidatedMission
-        let mut validated = ValidatedMission::new_with_actions(
-            ExecutionCapabilities::default(),
-            proof,
-            actions,
-        );
-        
+        let mut validated =
+            ValidatedMission::new_with_actions(ExecutionCapabilities::default(), proof, actions);
+
         validated.set_mission_hash(mission_hash);
-        
+
         Ok(validated)
     }
-    
+
     fn extract_actions(&self, parsed: &Value) -> SelResult<Vec<ValidatedAction>> {
-        let actions_array = parsed.get("actions")
+        let actions_array = parsed
+            .get("actions")
             .and_then(|v| v.as_array())
-            .ok_or_else(|| SovereignError::InvalidMissionFormat(
-                "Missing or invalid 'actions' array".to_string()
-            ))?;
-        
+            .ok_or_else(|| {
+                SovereignError::InvalidMissionFormat(
+                    "Missing or invalid 'actions' array".to_string(),
+                )
+            })?;
+
         let mut actions = Vec::with_capacity(actions_array.len());
-        
+
         for (i, action_val) in actions_array.iter().enumerate() {
-            let cmd = action_val.get("command")
+            let cmd = action_val
+                .get("command")
                 .and_then(|v| v.as_str())
-                .ok_or_else(|| SovereignError::InvalidMissionFormat(
-                    format!("Action {}: missing 'command'", i)
-                ))?;
-            
-            let args = action_val.get("args")
+                .ok_or_else(|| {
+                    SovereignError::InvalidMissionFormat(format!("Action {}: missing 'command'", i))
+                })?;
+
+            let args = action_val
+                .get("args")
                 .and_then(|v| v.as_array())
                 .map(|arr| {
                     arr.iter()
@@ -135,13 +135,13 @@ impl Validator {
                         .collect()
                 })
                 .unwrap_or_default();
-            
+
             actions.push(ValidatedAction {
                 command: cmd.to_string(),
                 args,
             });
         }
-        
+
         Ok(actions)
     }
 }
@@ -149,28 +149,28 @@ impl Validator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_hmac_validation() {
         let config = ValidationConfig::default();
         let validator = Validator::new(config);
-        
+
         let mission = r#"{"actions":[{"command":"echo","args":["test"]}]}"#;
         let result = validator.validate(mission);
-        
+
         assert!(result.is_ok());
         let validated = result.unwrap();
         assert!(!validated.validation_proof_str().is_empty());
     }
-    
+
     #[test]
     fn test_reject_cat() {
         let config = ValidationConfig::default();
         let validator = Validator::new(config);
-        
+
         let mission = r#"{"actions":[{"command":"cat","args":["file.txt"]}]}"#;
         let result = validator.validate(mission);
-        
+
         assert!(result.is_err());
         match result {
             Err(SovereignError::CapabilityViolation(msg)) => {
@@ -179,15 +179,15 @@ mod tests {
             _ => panic!("Expected CapabilityViolation"),
         }
     }
-    
+
     #[test]
     fn test_reject_path_traversal() {
         let config = ValidationConfig::default();
         let validator = Validator::new(config);
-        
+
         let mission = r#"{"actions":[{"command":"echo","args":["../../../etc/passwd"]}]}"#;
         let result = validator.validate(mission);
-        
+
         assert!(result.is_err());
         match result {
             Err(SovereignError::WorkspaceViolation(_)) => {}
