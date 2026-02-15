@@ -64,7 +64,6 @@ fn validate_mission(
     let config = ValidationConfig {
         max_actions,
         strict_mode,
-        ..Default::default()
     };
 
     let validator = Validator::new(config);
