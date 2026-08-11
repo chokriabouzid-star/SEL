@@ -72,19 +72,22 @@ fn validate_mission(
     println!("🔍 Validating...");
     let validated = validator.validate(&content)?;
 
-    println!("✅ VALIDATION SUCCESSFUL");
-    println!("   • Validator: {}", validated.validator_version());
+    // ── Output ──────────────────────────────────────────────────────────
+    // Format matches the Quick Start example in README so that:
+    //   • human readers see what the docs promise
+    //   • scripts that grep for sel:v1.0:sha256: work correctly
+    println!("✅ Mission validated successfully");
+    println!("   • Validator:      {}", validated.validator_version());
     println!("   • Workspace Mode: {:?}", validated.workspace_mode());
-    println!("   • Actions: {}", validated.actions().len());
-
-    // ✅ إصلاح clippy warning: 16.min(64) → 16
-    let proof = validated.validation_proof_str();
-    let truncated = if proof.len() > 16 {
-        &proof[..16]
-    } else {
-        proof
-    };
-    println!("   • Proof: {}...", truncated);
+    println!("   • Actions:        {}", validated.actions().len());
+    println!(
+        "   • Hash:  sel:v1.0:sha256:{}",
+        validated.mission_hash()
+    );
+    println!(
+        "   • Proof: {}",
+        validated.validation_proof_str()
+    );
 
     Ok(validated)
 }
