@@ -1,9 +1,9 @@
 # SEL — Sovereign Execution Layer
 
-[![Tests](https://img.shields.io/badge/tests-33%2F33-brightgreen)]()
-[![Core](https://img.shields.io/badge/core-v1.0.0-blue)]()
+[![Tests](https://img.shields.io/badge/tests-37%2F37-brightgreen)]()
+[![Core](https://img.shields.io/badge/core-v1.1.0-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange)]()
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange)]()
 
 **Deterministic execution engine with cryptographic guarantees for compliance-critical workflows.**
 
@@ -52,9 +52,9 @@ Every execution becomes **cryptographically verifiable**.
 | **Security enforcement** | Strict command whitelist, path traversal protection |
 | **Resource controls** | Enforced limits: ticks, actions, stdout size |
 | **Cross-platform design** | Designed for Linux, macOS, Windows (Linux verified) |
-| **Audit trail** | Hash-chained facts logger |
+| **Audit trail** | Hash-chained facts logger with fsync-per-fact durability |
 
-**Proven:** 20/20 identical hashes in stress tests, 33/33 tests passing.
+**Proven:** 20/20 identical hashes in stress tests, 37 tests passing + 3 intentionally ignored.
 
 ---
 
@@ -139,8 +139,8 @@ Expected output:
 
 \`\`\`
 ✅ Mission validated successfully
-Hash: sel:v1.0:sha256:f7c3bc1d808e...
-Proof: a1b2c3d4e5f6...
+Hash:  sel:v1.0:sha256:<64-char-hex>
+Proof: <64-char-hex>
 \`\`\`
 
 ---
