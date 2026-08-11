@@ -50,10 +50,7 @@ impl FactsLogger {
     /// Do **not** use `false` for anything claiming to be an audit trail.
     ///
     /// 🔴 Uses `create_new(true)` — fails if the file already exists.
-    pub fn with_durability(
-        path: impl AsRef<Path>,
-        durable: bool,
-    ) -> Result<Self, SovereignError> {
+    pub fn with_durability(path: impl AsRef<Path>, durable: bool) -> Result<Self, SovereignError> {
         let path = path.as_ref().to_path_buf();
 
         // تحقق من وجود المجلد الأصلي

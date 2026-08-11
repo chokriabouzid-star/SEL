@@ -40,8 +40,8 @@ impl CryptoAuthority {
         Self {
             // "SEL_CORE_1.0_KEY" in ASCII
             hmac_key: vec![
-                0x53, 0x45, 0x4c, 0x5f, 0x43, 0x4f, 0x52, 0x45,
-                0x5f, 0x31, 0x2e, 0x30, 0x5f, 0x4b, 0x45, 0x59,
+                0x53, 0x45, 0x4c, 0x5f, 0x43, 0x4f, 0x52, 0x45, 0x5f, 0x31, 0x2e, 0x30, 0x5f, 0x4b,
+                0x45, 0x59,
             ],
         }
     }
@@ -164,8 +164,7 @@ impl CryptoAuthority {
     /// Sign `message` with HMAC-SHA256.  Output is deterministic for a
     /// fixed key (used directly by the hash-chain / proof logic).
     pub fn sign(&self, message: &str) -> String {
-        let mut mac =
-            HmacSha256::new_from_slice(&self.hmac_key).expect("HMAC key length is valid");
+        let mut mac = HmacSha256::new_from_slice(&self.hmac_key).expect("HMAC key length is valid");
         mac.update(message.as_bytes());
         hex::encode(mac.finalize().into_bytes())
     }
@@ -214,10 +213,8 @@ mod tests {
         let key_hex = hex::encode(&key_bytes);
         let dir = tempdir().unwrap();
 
-        let auth = CryptoAuthority::_resolve(
-            &dir.path().join("unused.key"),
-            Some(&key_hex),
-        ).unwrap();
+        let auth =
+            CryptoAuthority::_resolve(&dir.path().join("unused.key"), Some(&key_hex)).unwrap();
 
         let expected = CryptoAuthority::from_key(key_bytes).unwrap();
         assert_eq!(auth.sign("msg"), expected.sign("msg"));
@@ -229,12 +226,8 @@ mod tests {
         // with zero dependency on process-global env-var state.
         // Two independent key paths must never produce the same key.
         let dir = tempdir().unwrap();
-        let auth_a = CryptoAuthority::_resolve(
-            &dir.path().join("a.key"), None
-        ).unwrap();
-        let auth_b = CryptoAuthority::_resolve(
-            &dir.path().join("b.key"), None
-        ).unwrap();
+        let auth_a = CryptoAuthority::_resolve(&dir.path().join("a.key"), None).unwrap();
+        let auth_b = CryptoAuthority::_resolve(&dir.path().join("b.key"), None).unwrap();
         assert_ne!(auth_a.sign("msg"), auth_b.sign("msg"));
     }
 
@@ -259,8 +252,7 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             let meta = std::fs::metadata(&key_path).unwrap();
             let mode = meta.permissions().mode() & 0o777;
-            assert_eq!(mode, 0o600,
-                "key file must be mode 0600, got {:o}", mode);
+            assert_eq!(mode, 0o600, "key file must be mode 0600, got {:o}", mode);
         }
     }
 }

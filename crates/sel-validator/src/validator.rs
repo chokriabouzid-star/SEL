@@ -35,9 +35,8 @@ pub struct Validator {
 
 impl Validator {
     pub fn new(config: ValidationConfig) -> Self {
-        let crypto =
-            CryptoAuthority::from_env_or_generate(&CryptoAuthority::default_key_path())
-                .unwrap_or_else(|e| panic!("SEL: invalid HMAC key configuration: {}", e));
+        let crypto = CryptoAuthority::from_env_or_generate(&CryptoAuthority::default_key_path())
+            .unwrap_or_else(|e| panic!("SEL: invalid HMAC key configuration: {}", e));
         Self { config, crypto }
     }
 

@@ -80,14 +80,8 @@ fn validate_mission(
     println!("   • Validator:      {}", validated.validator_version());
     println!("   • Workspace Mode: {:?}", validated.workspace_mode());
     println!("   • Actions:        {}", validated.actions().len());
-    println!(
-        "   • Hash:  sel:v1.0:sha256:{}",
-        validated.mission_hash()
-    );
-    println!(
-        "   • Proof: {}",
-        validated.validation_proof_str()
-    );
+    println!("   • Hash:  sel:v1.0:sha256:{}", validated.mission_hash());
+    println!("   • Proof: {}", validated.validation_proof_str());
 
     Ok(validated)
 }
