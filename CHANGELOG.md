@@ -49,7 +49,14 @@ All notable changes to SEL will be documented in this file.
   - `Cargo.lock` is now tracked; update intentionally with `cargo update`
 
 ### Test Coverage
-✅ sel-common: 9/9 tests (unchanged) ✅ sel-validator: 14/14 tests (+6 new: HMAC key resolution, persistence, file mode, env var, independence) ✅ sel-engine: 8/8 tests (+2 new: durable_by_default, fast_mode_writes_correct_data) ✅ integration: 6/6 tests (unchanged) ⚠️ ignored: 3 tests (intentional: command rules tested at Validator level, not rules level) ───────────────────────────────────────── ✅ total: 37 tests passing (was: 29) ✅ determinism: 20/20 identical hashes in stress test ✅ marathon: 100/100 identical hashes (scripts/core_test_marathon.sh)
+- ✅ sel-common: 9/9 tests (unchanged)
+- ✅ sel-validator: 14/14 tests (+6 new: HMAC key resolution, persistence, file mode, env var, independence)
+- ✅ sel-engine: 8/8 tests (+2 new: durable_by_default, fast_mode_writes_correct_data)
+- ✅ integration: 6/6 tests (unchanged)
+- ⚠️  ignored: 3 tests (intentional: command rules tested at Validator level, not rules level)
+- ✅ **total: 37 tests passing (was: 29)**
+- ✅ determinism: 20/20 identical hashes in stress test
+- ✅ marathon: 100/100 identical hashes (scripts/core_test_marathon.sh)
 
 text
 
@@ -85,7 +92,7 @@ text
   - Zero randomness
 
 - **Versioned Hashes**
-  - Format: \`sel:v1.0:sha256:<hex>\`
+  - Format: `sel:v1.0:sha256:<hex>`
   - Spec version included in hash input
   - Enables long-term audit integrity
 
@@ -95,20 +102,20 @@ text
   - Clear error messages for tampering
 
 - **Security Enforcement**
-  - Strict command whitelist (only \`echo\`, \`pwd\`)
-  - Path traversal protection (\`../\`, \`/\`, \`~/\`)
+  - Strict command whitelist (only `echo`, `pwd`)
+  - Path traversal protection (`../`, `/`, `~/`)
   - Forbidden command blocking
 
 - **Resource Limits**
-  - \`max_actions\`: 1000
-  - \`max_ticks\`: 10,000
-  - \`max_stdout\`: 1 MiB
-  - Enforced with precise \`ResourceKind\` errors
+  - `max_actions`: 1000
+  - `max_ticks`: 10,000
+  - `max_stdout`: 1 MiB
+  - Enforced with precise `ResourceKind` errors
 
 - **Audit Trail**
   - Hash-chained facts logger
   - Tamper-proof execution log
-  - \`fsync\` guarantee after each fact
+  - `fsync` guarantee after each fact
 
 - **Workspace Isolation**
   - Deterministic UUID v5 from mission hash
@@ -117,14 +124,14 @@ text
 
 ### Test Status
 
-\`\`\`
+```
 ✅ sel-common:          9/9 tests
 ✅ sel-validator:       8/8 tests + 4 integration
 ✅ sel-engine:          6/6 tests + 2 integration
 ✅ total:               33/33 tests passing
 ✅ determinism:         20/20 identical hashes
 ✅ security:            All forbidden commands blocked
-\`\`\`
+```
 
 ### Documentation
 
@@ -137,7 +144,7 @@ text
 ### Known Limitations
 
 - No Ed25519 signatures (planned for v1.1)
-- Limited commands (only \`echo\`/\`pwd\` in Core)
+- Limited commands (only `echo`/`pwd` in Core)
 - No file operations (coming in v1.1)
 - No distributed verification (future)
 
@@ -153,6 +160,6 @@ text
 ### Planned
 
 - Ed25519 signatures (dual-crypto)
-- Extended commands: \`read\`, \`write\`, \`env\`
+- Extended commands: `read`, `write`, `env`
 - Enhanced workspace operations
 - Compliance reporting tools

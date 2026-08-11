@@ -43,7 +43,7 @@ Every execution becomes **cryptographically verifiable**.
 
 ---
 
-## Core Guarantees (v1.0.0)
+## Core Guarantees (v1.1.0)
 
 | Guarantee | Implementation |
 |-----------|----------------|
@@ -73,13 +73,13 @@ This guarantee enables:
 
 ## Architecture
 
-\`\`\`
+```
 SEL/
 ├── sel-common          # Canonicalization, hashing, error types
 ├── sel-validator       # Mission validation + HMAC verification
 ├── sel-engine          # Execution engine + workspace + facts logger
 └── sel-validator-cli   # Command-line interface
-\`\`\`
+```
 
 ### Design Principles
 
@@ -94,7 +94,7 @@ SEL/
 
 ### Installation
 
-\`\`\`bash
+```bash
 # Clone repository
 git clone https://github.com/chokriabouzid-star/SEL.git
 cd SEL
@@ -104,13 +104,13 @@ cargo build --release
 
 # Verify installation
 cargo test --workspace
-\`\`\`
+```
 
 ### Your First Mission
 
 Create a simple mission file:
 
-\`\`\`json
+```json
 {
   "name": "hello-world",
   "version": "1.0",
@@ -127,21 +127,21 @@ Create a simple mission file:
     }
   ]
 }
-\`\`\`
+```
 
 Validate:
 
-\`\`\`bash
+```bash
 ./target/release/sel-validator-cli validate mission.json
-\`\`\`
+```
 
 Expected output:
 
-\`\`\`
+```
 ✅ Mission validated successfully
 Hash:  sel:v1.0:sha256:<64-char-hex>
 Proof: <64-char-hex>
-\`\`\`
+```
 
 ---
 
@@ -151,7 +151,7 @@ Proof: <64-char-hex>
 
 **Scenario:** Daily verification for SOC2 compliance
 
-\`\`\`json
+```json
 {
   "name": "daily-transaction-audit",
   "version": "1.0",
@@ -178,7 +178,7 @@ Proof: <64-char-hex>
     }
   ]
 }
-\`\`\`
+```
 
 **Value:** Cryptographic proof that verification workflow executed as documented.
 
@@ -188,7 +188,7 @@ Proof: <64-char-hex>
 
 **Scenario:** Patient data backup verification
 
-\`\`\`json
+```json
 {
   "name": "hipaa-backup-verification",
   "version": "1.0",
@@ -206,7 +206,7 @@ Proof: <64-char-hex>
     }
   ]
 }
-\`\`\`
+```
 
 **Value:** Tamper-proof evidence of backup execution for regulatory audits.
 
@@ -216,7 +216,7 @@ Proof: <64-char-hex>
 
 **Scenario:** Quarterly regulatory audit trail
 
-\`\`\`json
+```json
 {
   "name": "quarterly-compliance-check",
   "version": "1.0",
@@ -230,7 +230,7 @@ Proof: <64-char-hex>
     }
   ]
 }
-\`\`\`
+```
 
 **Value:** Immutable proof for regulatory bodies.
 
@@ -241,14 +241,14 @@ Proof: <64-char-hex>
 ### Core 1.0 Command Whitelist
 
 **Allowed:**
-- ✅ \`echo\` – Output text
-- ✅ \`pwd\` – Print working directory
+- ✅ `echo` – Output text
+- ✅ `pwd` – Print working directory
 
 **Blocked:**
-- ❌ All filesystem operations (\`cat\`, \`ls\`, \`rm\`, \`cp\`, \`mv\`, \`write\`)
-- ❌ All network operations (\`wget\`, \`curl\`, \`ssh\`)
-- ❌ All system operations (\`sudo\`, shell expansions)
-- ❌ Path traversal attempts (\`../\`, absolute paths)
+- ❌ All filesystem operations (`cat`, `ls`, `rm`, `cp`, `mv`, `write`)
+- ❌ All network operations (`wget`, `curl`, `ssh`)
+- ❌ All system operations (`sudo`, shell expansions)
+- ❌ Path traversal attempts (`../`, absolute paths)
 
 **Design Philosophy:** Core 1.0 is intentionally minimal. Extended commands (v1.1+) will be carefully added with equivalent security rigor.
 
@@ -256,21 +256,21 @@ Proof: <64-char-hex>
 
 ## Test Status
 
-\`\`\`
+```
 Component              Tests    Status
 ──────────────────────────────────────────
 sel-common              9/9     ✅ PASS
-sel-validator           8/8     ✅ PASS
-sel-engine              6/6     ✅ PASS
-Integration tests      10/10    ✅ PASS
+sel-validator          14/14    ✅ PASS (+3 intentionally ignored)
+sel-engine              8/8     ✅ PASS
+Integration tests       6/6     ✅ PASS
 ──────────────────────────────────────────
-Total                  33/33    ✅ PASS
+Total                  37/37    ✅ PASS
 
 Determinism stress:     20/20   ✅ Identical hashes
 Security audit:         All forbidden commands blocked ✅
 Cross-platform:         Designed for Linux/macOS/Windows (Linux verified)
 Performance:            0.025s per validation ✅
-\`\`\`
+```
 
 ---
 
@@ -278,23 +278,24 @@ Performance:            0.025s per validation ✅
 
 | Version | Status | Focus |
 |---------|--------|-------|
-| **v1.0.0** | ✅ **Stable** | Deterministic core + HMAC verification |
-| **v1.1.0** | 🚧 Planned | Ed25519 signatures + extended commands (\`read\`, \`write\`, \`env\`) |
+| **v1.0.0** | ✅ Released | Deterministic core + HMAC verification |
+| **v1.1.0** | ✅ **Stable (current)** | Security & correctness remediation (per-install HMAC keys, real fsync, doc/CLI accuracy) |
+| **v1.2.0** | 🚧 Planned | Ed25519 signatures + extended commands (`read`, `write`, `env`) |
 | **v2.0.0** | 💡 Future | Distributed verification layer |
 
 ---
 
 ## Project Status
 
-**SEL Core 1.0.0 is stable and production-ready** for deterministic validation workflows.
+**SEL Core 1.1.0 is stable and production-ready** for deterministic validation workflows.
 
-- ✅ **Stable Core:** Determinism proven, security enforced
+- ✅ **Stable Core:** Determinism proven, security enforced, HMAC keys are per-install
 - ⏳ **Growing Ecosystem:** Extended features in active development
 - 🤝 **Community-Driven:** Contributions welcome to expand capabilities
 
 **Not Yet Supported:**
-- File operations (coming in v1.1)
-- Ed25519 signatures (coming in v1.1)
+- File operations (coming in v1.2)
+- Ed25519 signatures (coming in v1.2)
 - Distributed verification (future)
 
 ---
@@ -307,11 +308,11 @@ Performance:            0.025s per validation ✅
 
 ### Examples
 
-See \`examples/\` directory:
-- \`basic.json\` – Simple hello world
-- \`fintech.json\` – Transaction verification
-- \`healthcare.json\` – HIPAA backup verification
-- \`gov.json\` – Government audit trail
+See `examples/` directory:
+- `basic.json` – Simple hello world
+- `fintech.json` – Transaction verification
+- `healthcare.json` – HIPAA backup verification
+- `gov.json` – Government audit trail
 
 ---
 
@@ -325,11 +326,11 @@ Contributions must preserve SEL's core guarantees:
 
 **Before submitting:**
 
-\`\`\`bash
+```bash
 cargo test --workspace      # All tests must pass
 cargo fmt --all             # Format code
 cargo clippy --workspace    # No warnings
-\`\`\`
+```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 

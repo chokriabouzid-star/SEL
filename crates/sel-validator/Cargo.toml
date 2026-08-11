@@ -1,6 +1,6 @@
 [package]
 name = "sel-validator"
-version = "1.0.0"
+version.workspace = true
 edition = "2021"
 rust-version = "1.85.0"
 
