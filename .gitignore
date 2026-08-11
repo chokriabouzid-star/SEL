@@ -20,3 +20,7 @@ Thumbs.db
 **/*.o
 **/*.so
 **/*.dylib
+# Pre-built binaries — build from source instead
+*-linux-x86_64
+*-darwin-*
+*-windows-*.exe
