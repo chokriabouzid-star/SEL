@@ -15,4 +15,4 @@ pub use types::{
 };
 pub use validator::{ValidationConfig, Validator};
 
-pub const VALIDATOR_VERSION: &str = "1.0.0";
+pub const VALIDATOR_VERSION: &str = "1.2.0";
