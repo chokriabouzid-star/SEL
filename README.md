@@ -1,7 +1,7 @@
 # SEL — Sovereign Execution Layer
 
-[![Tests](https://img.shields.io/badge/tests-37%2F37-brightgreen)]()
-[![Core](https://img.shields.io/badge/core-v1.1.0-blue)]()
+[![Tests](https://img.shields.io/badge/tests-45%2F45-brightgreen)]()
+[![Core](https://img.shields.io/badge/core-v1.2.0-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange)]()
 
@@ -43,7 +43,7 @@ Every execution becomes **cryptographically verifiable**.
 
 ---
 
-## Core Guarantees (v1.1.0)
+## Core Guarantees (v1.2.0)
 
 | Guarantee | Implementation |
 |-----------|----------------|
@@ -54,7 +54,7 @@ Every execution becomes **cryptographically verifiable**.
 | **Cross-platform design** | Designed for Linux, macOS, Windows (Linux verified) |
 | **Audit trail** | Hash-chained facts logger with fsync-per-fact durability |
 
-**Proven:** 20/20 identical hashes in stress tests, 37 tests passing + 3 intentionally ignored.
+**Proven:** 20/20 identical hashes in stress tests, 45 tests passing + 3 intentionally ignored.
 
 ---
 
@@ -260,11 +260,11 @@ Proof: <64-char-hex>
 Component              Tests    Status
 ──────────────────────────────────────────
 sel-common              9/9     ✅ PASS
-sel-validator          14/14    ✅ PASS (+3 intentionally ignored)
+sel-validator          21/21    ✅ PASS (+3 intentionally ignored)
 sel-engine              8/8     ✅ PASS
 Integration tests       6/6     ✅ PASS
 ──────────────────────────────────────────
-Total                  37/37    ✅ PASS
+Total                  45/45    ✅ PASS
 
 Determinism stress:     20/20   ✅ Identical hashes
 Security audit:         All forbidden commands blocked ✅
@@ -279,17 +279,18 @@ Performance:            0.025s per validation ✅
 | Version | Status | Focus |
 |---------|--------|-------|
 | **v1.0.0** | ✅ Released | Deterministic core + HMAC verification |
-| **v1.1.0** | ✅ **Stable (current)** | Security & correctness remediation (per-install HMAC keys, real fsync, doc/CLI accuracy) |
-| **v1.2.0** | 🚧 Planned | Ed25519 signatures + extended commands (`read`, `write`, `env`) |
+| **v1.1.0** | ✅ Released | Security & correctness remediation (per-install HMAC keys, real fsync, doc/CLI accuracy) |
+| **v1.2.0** | ✅ **Stable (current)** | Ed25519 dual-signing, independent `verify` command, max_facts enforcement |
+| **v1.3.0** | 🚧 Planned | Extended commands (`read`, `write`, `env`) + cross-platform verification |
 | **v2.0.0** | 💡 Future | Distributed verification layer |
 
 ---
 
 ## Project Status
 
-**SEL Core 1.1.0 is stable and production-ready** for deterministic validation workflows.
+**SEL Core 1.2.0 is stable and production-ready** for deterministic validation workflows.
 
-- ✅ **Stable Core:** Determinism proven, security enforced, HMAC keys are per-install
+- ✅ **Stable Core:** Determinism proven, security enforced, HMAC keys are per-install, Ed25519 non-repudiation proofs
 - ⏳ **Growing Ecosystem:** Extended features in active development
 - 🤝 **Community-Driven:** Contributions welcome to expand capabilities
 

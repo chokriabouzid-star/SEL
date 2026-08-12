@@ -2,6 +2,55 @@
 
 All notable changes to SEL will be documented in this file.
 
+## [1.2.0] - 2026-08-12
+
+### New Features
+
+- **Ed25519 dual-signing and independent verification**
+  - Every validated mission now carries two proofs:
+    - HMAC-SHA256 (unchanged from v1.1.0 — existing consumers unaffected)
+    - Ed25519 signature over the same canonical JSON
+  - `Ed25519Authority`: signing side, key resolution identical to HMAC
+    (`SEL_ED25519_KEY_HEX` env var → `~/.sel/ed25519.key` → generated)
+  - `Ed25519Verifier`: public-key-only verification — no shared secret
+  - New CLI subcommand `verify`:
+    ```
+    sel-validator-cli verify --mission m.json --signature <hex> --pubkey <hex>
+    ```
+    Exit 0 = VALID, Exit 1 = INVALID (scriptable in CI)
+  - End-to-end verified: `env -i` (empty environment) verify succeeds —
+    a true auditor scenario with zero shared secrets
+
+- **`max_facts` limit now enforced in MissionExecutor**
+  - Previously `ResourceLimits.max_facts` (default 10,000) was defined
+    but never checked during execution
+  - `check_facts_limit()` called before every `log_fact()` invocation
+  - Returns `ResourceExhaustion { kind: Facts }` when limit is reached
+  - Integration test: `test_max_facts_limit_enforced`
+
+### Refactoring
+
+- **Removed 4 dead-code files from sel-validator** (none were reachable
+  from the compiler):
+  - `types/core.rs` — old Mission/ExecutionPlan design, used `regex` (not in deps)
+  - `types/validation.rs` — old ValidationResult/Error
+  - `validator/engine.rs` — ValidationEngine built on old types
+  - `validator/rules.rs` (10.4 KB) — 18-rule blacklist system, contradicts
+    "Whitelist > Blacklist" principle (README Design Principles #2)
+  - `signature.rs` kept and rewritten as Ed25519 foundation
+
+### Test Coverage
+
+- ✅ sel-common:          9/9   (unchanged)
+- ✅ sel-validator:      21/21  (+7 Ed25519 unit tests)
+- ✅ sel-engine:          8/8   (unchanged)
+- ✅ integration:         6/6   (+1 max_facts enforcement)
+- ⚠️  ignored:            3     (intentional, unchanged)
+- ✅ **total: 45 tests passing (was: 37)**
+- ✅ Ed25519 end-to-end: validate → verify (empty env) ✅ tamper detection ✅
+
+---
+
 ## [1.1.0] - 2026-08-11
 
 ### Security Fixes
