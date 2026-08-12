@@ -12,6 +12,7 @@ sha2 = { workspace = true }
 hex = { workspace = true }
 thiserror = { workspace = true }
 hmac = { workspace = true }
+ed25519-dalek = { workspace = true }
 rand = { workspace = true }
 
 [dev-dependencies]

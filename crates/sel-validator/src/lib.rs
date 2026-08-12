@@ -3,11 +3,13 @@
 
 mod crypto_authority;
 mod rules;
+pub mod signature;
 pub mod types;
 mod validator;
 
 pub use crypto_authority::CryptoAuthority;
 pub use sel_common::SovereignError;
+pub use signature::{Ed25519Authority, Ed25519Verifier, SignatureAuthority};
 pub use types::{
     ExecutionCapabilities, ValidatedAction, ValidatedMission, ValidationProof, WorkspaceMode,
 };
