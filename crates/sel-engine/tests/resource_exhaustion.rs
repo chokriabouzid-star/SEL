@@ -51,3 +51,37 @@ fn test_tick_limit_enforced() -> Result<(), SovereignError> {
 
     Ok(())
 }
+
+#[test]
+fn test_max_facts_limit_enforced() {
+    use sel_engine::engine::{ResourceLimits, WorkspaceMode};
+    use sel_validator::{ValidationConfig, Validator};
+
+    let config = ValidationConfig::default();
+    let validator = Validator::new(config);
+    let mission_json = r#"{"actions":[{"command":"echo","args":["hi"]}]}"#;
+    let validated = validator.validate(mission_json).unwrap();
+
+    // فعل واحد = 3 حقائق (mission_start + action_start + action_end)
+    // mission_end = الرابعة — نضبط الحد على 3 لإجبار الفشل عندها
+    let mut limits = ResourceLimits::core_compliant();
+    limits.max_facts = 3;
+
+    let mut executor = sel_engine::engine::MissionExecutor::new_with_limits(
+        WorkspaceMode::ReadOnly,
+        &validated.mission_hash(),
+        limits,
+    )
+    .unwrap();
+
+    let result = executor.execute(validated);
+    assert!(result.is_err(), "يجب أن يفشل عند تجاوز max_facts");
+
+    match result {
+        Err(sel_common::SovereignError::ResourceExhaustion { kind, limit, .. }) => {
+            assert_eq!(kind, sel_common::ResourceKind::Facts);
+            assert_eq!(limit, 3);
+        }
+        other => panic!("خطأ غير متوقع: {:?}", other),
+    }
+}

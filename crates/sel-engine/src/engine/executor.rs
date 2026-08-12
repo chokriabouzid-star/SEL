@@ -85,6 +85,7 @@ impl MissionExecutor {
             "logical_tick": self.logical_clock.ticks(),
         });
 
+        self.check_facts_limit()?;
         self.facts_logger.log_fact(mission_start)?;
 
         let mut actions_succeeded = 0;
@@ -109,6 +110,7 @@ impl MissionExecutor {
                 "logical_tick": self.logical_clock.ticks(),
             });
 
+            self.check_facts_limit()?;
             self.facts_logger.log_fact(action_start)?;
 
             let result = self.execute_builtin(&action.command, &action.args);
@@ -147,6 +149,7 @@ impl MissionExecutor {
                 "logical_tick": self.logical_clock.ticks(),
             });
 
+            self.check_facts_limit()?;
             self.facts_logger.log_fact(action_end)?;
         }
 
@@ -159,6 +162,7 @@ impl MissionExecutor {
             "logical_tick": self.logical_clock.ticks(),
         });
 
+        self.check_facts_limit()?;
         self.facts_logger.log_fact(mission_end)?;
 
         let final_hash = self.facts_logger.finalize();
@@ -179,6 +183,19 @@ impl MissionExecutor {
             stdout_bytes: self.stdout_bytes_accumulated,
             stderr_bytes: self.stderr_bytes_accumulated,
         })
+    }
+
+    /// Check `max_facts` limit before every `log_fact` call.
+    fn check_facts_limit(&self) -> SelResult<()> {
+        let logged = self.facts_logger.fact_count();
+        if logged >= self.limits.max_facts {
+            return Err(SovereignError::ResourceExhaustion {
+                kind: ResourceKind::Facts,
+                limit: self.limits.max_facts as u64,
+                requested: (logged + 1) as u64,
+            });
+        }
+        Ok(())
     }
 
     fn execute_builtin(&self, command: &str, args: &[String]) -> ActionResult {

@@ -27,6 +27,8 @@ pub struct FactsLogger {
     /// When `true`, every `log_fact` call fsyncs to physical disk.
     /// When `false`, only flushes to the OS page cache (faster, less safe).
     durable: bool,
+    /// Number of facts successfully logged so far.
+    facts_logged: usize,
 }
 
 impl FactsLogger {
@@ -82,6 +84,7 @@ impl FactsLogger {
             hash_chain: HashChain::new(),
             path,
             durable,
+            facts_logged: 0,
         })
     }
 
@@ -115,6 +118,7 @@ impl FactsLogger {
         }
 
         // Add to hash chain (deterministic)
+        self.facts_logged += 1;
         Ok(self.hash_chain.add_fact(&fact))
     }
 
@@ -126,6 +130,11 @@ impl FactsLogger {
     /// Return the path to the facts file.
     pub fn path(&self) -> &std::path::Path {
         &self.path
+    }
+
+    /// Number of facts successfully logged so far.
+    pub fn fact_count(&self) -> usize {
+        self.facts_logged
     }
 }
 
