@@ -15,8 +15,10 @@ fn test_tick_limit_enforced() -> Result<(), SovereignError> {
         actions.push(format!(r#"{{"command": "echo", "args": ["{}"]}}"#, i));
     }
 
-    let mut config = ValidationConfig::default();
-    config.max_actions = action_count + 10;
+    let config = ValidationConfig {
+        max_actions: action_count + 10,
+        ..Default::default()
+    };
 
     let mission_json = format!(r#"{{"actions": [{}]}}"#, actions.join(","));
 

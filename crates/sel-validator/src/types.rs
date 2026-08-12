@@ -56,6 +56,13 @@ pub struct ValidatedMission {
     pub core_version: String,
     pub capabilities: ExecutionCapabilities,
     pub validation_proof: ValidationProof,
+    /// Ed25519 signature (hex) over the canonical JSON.
+    /// `None` until `.with_ed25519(...)` is called.
+    #[serde(default)]
+    pub ed25519_proof: Option<String>,
+    /// Hex-encoded Ed25519 public key matching `ed25519_proof`.
+    #[serde(default)]
+    pub ed25519_public_key: Option<String>,
     pub validator_version: String,
     pub actions: Vec<ValidatedAction>,
     pub mission_hash: String,
@@ -67,6 +74,8 @@ impl ValidatedMission {
             core_version: SEL_VERSION.to_string(),
             capabilities,
             validation_proof: proof,
+            ed25519_proof: None,
+            ed25519_public_key: None,
             validator_version: crate::VALIDATOR_VERSION.to_string(),
             actions: Vec::new(),
             mission_hash: String::new(),
@@ -81,6 +90,13 @@ impl ValidatedMission {
         let mut mission = Self::new(capabilities, proof);
         mission.actions = actions;
         mission
+    }
+
+    /// Attach Ed25519 proof + public key (builder-style, additive).
+    pub fn with_ed25519(mut self, proof_hex: String, public_key_hex: String) -> Self {
+        self.ed25519_proof = Some(proof_hex);
+        self.ed25519_public_key = Some(public_key_hex);
+        self
     }
 
     pub fn validator_version(&self) -> &str {
@@ -109,6 +125,14 @@ impl ValidatedMission {
 
     pub fn validation_proof_str(&self) -> &str {
         &self.validation_proof.0
+    }
+
+    pub fn ed25519_proof_str(&self) -> Option<&str> {
+        self.ed25519_proof.as_deref()
+    }
+
+    pub fn ed25519_public_key_str(&self) -> Option<&str> {
+        self.ed25519_public_key.as_deref()
     }
 
     pub fn actions(&self) -> Vec<ValidatedAction> {

@@ -8,6 +8,7 @@ use sha2::{Digest, Sha256};
 use crate::{
     crypto_authority::CryptoAuthority,
     rules::{validate_security_rules, SecurityViolation},
+    signature::{Ed25519Authority, SignatureAuthority},
     types::{ExecutionCapabilities, ValidatedAction, ValidatedMission, ValidationProof},
 };
 
@@ -31,13 +32,21 @@ impl Default for ValidationConfig {
 pub struct Validator {
     config: ValidationConfig,
     crypto: CryptoAuthority,
+    ed25519: Ed25519Authority,
 }
 
 impl Validator {
     pub fn new(config: ValidationConfig) -> Self {
         let crypto = CryptoAuthority::from_env_or_generate(&CryptoAuthority::default_key_path())
             .unwrap_or_else(|e| panic!("SEL: invalid HMAC key configuration: {}", e));
-        Self { config, crypto }
+        let ed25519 =
+            Ed25519Authority::from_path_or_generate(&Ed25519Authority::default_key_path())
+                .unwrap_or_else(|e| panic!("SEL: invalid Ed25519 key configuration: {}", e));
+        Self {
+            config,
+            crypto,
+            ed25519,
+        }
     }
 
     pub fn validate(&self, mission_json: &str) -> SelResult<ValidatedMission> {
@@ -91,13 +100,22 @@ impl Validator {
             }
         }
 
-        // Generate HMAC proof
+        // Generate HMAC proof (unchanged — existing consumers unaffected)
         let signature = self.crypto.sign(&canonical);
         let proof = ValidationProof::new(signature);
 
+        // Generate Ed25519 proof (additive — third parties can verify
+        // independently using only the public key, no shared secret needed)
+        let ed25519_sig = self
+            .ed25519
+            .sign(canonical.as_bytes())
+            .map_err(|e| SovereignError::InternalError(format!("Ed25519 signing failed: {}", e)))?;
+        let ed25519_pubkey = self.ed25519.public_key_hex();
+
         // Create ValidatedMission
         let mut validated =
-            ValidatedMission::new_with_actions(ExecutionCapabilities::default(), proof, actions);
+            ValidatedMission::new_with_actions(ExecutionCapabilities::default(), proof, actions)
+                .with_ed25519(ed25519_sig, ed25519_pubkey);
 
         validated.set_mission_hash(mission_hash);
 
