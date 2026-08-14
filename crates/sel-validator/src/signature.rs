@@ -133,14 +133,30 @@ impl Ed25519Authority {
         if let Some(parent) = key_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let mut file = fs::File::create(key_path)?;
-        file.write_all(seed)?;
 
+        // Create the file with mode 0600 atomically from the very first byte.
+        // Using OpenOptionsExt::mode() sets the file permission at open(2) time,
+        // eliminating the TOCTOU window that exists when File::create() (which
+        // uses the process umask, typically 0644) is followed by set_permissions().
+        // create_new(true) also prevents silently overwriting an existing key.
         #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            file.set_permissions(fs::Permissions::from_mode(0o600))?;
-        }
+        let mut file = {
+            use std::os::unix::fs::OpenOptionsExt;
+            fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(key_path)?
+        };
+
+        #[cfg(not(unix))]
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(key_path)?;
+
+        file.write_all(seed)?;
+        file.sync_all()?;
 
         Ok(())
     }
