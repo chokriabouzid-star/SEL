@@ -13,6 +13,7 @@ pub use errors::{SelResult, SovereignError};
 pub use hash_chain::{HashChain, HashChainBuilder, GENESIS_HASH};
 pub use resource_kind::ResourceKind;
 
-pub const SEL_VERSION: &str = "1.1.0-alpha";
-pub const SEL_CORE_VERSION: &str = "1.0.0";
-pub const SEL_EXTENDED_VERSION: &str = "1.1.0-alpha";
+/// SEL version — derived from Cargo.toml at compile time so it can never
+/// drift from the actual package version. This value is written into every
+/// ValidatedMission's `core_version` field and therefore into every proof.
+pub const SEL_VERSION: &str = env!("CARGO_PKG_VERSION");
