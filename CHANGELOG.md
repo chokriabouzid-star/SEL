@@ -178,6 +178,7 @@ text
 ✅ sel-validator:       8/8 tests + 4 integration
 ✅ sel-engine:          6/6 tests + 2 integration
 ✅ total:               33/33 tests passing
+⚠️  Correction (see [1.1.0]): actual count at release was 29 passed + 3 ignored; the 33/33 figure was a miscalculation in the original entry. The [1.1.0] entry correctly states 'was: 29'.
 ✅ determinism:         20/20 identical hashes
 ✅ security:            All forbidden commands blocked
 ```

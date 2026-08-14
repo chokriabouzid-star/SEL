@@ -262,7 +262,7 @@ Component              Tests    Status
 sel-common              9/9     ✅ PASS
 sel-validator          21/21    ✅ PASS (+3 intentionally ignored)
 sel-engine              8/8     ✅ PASS
-Integration tests       6/6     ✅ PASS
+Integration tests       7/7     ✅ PASS
 ──────────────────────────────────────────
 Total                  45/45    ✅ PASS
 
@@ -295,8 +295,7 @@ Performance:            0.025s per validation ✅
 - 🤝 **Community-Driven:** Contributions welcome to expand capabilities
 
 **Not Yet Supported:**
-- File operations (coming in v1.2)
-- Ed25519 signatures (coming in v1.2)
+- File operations (coming in v1.3)
 - Distributed verification (future)
 
 ---
