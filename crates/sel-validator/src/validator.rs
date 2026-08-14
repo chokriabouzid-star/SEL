@@ -1,5 +1,5 @@
 //! # Sovereign Validator Implementation
-//! SEL Core 1.0 - HMAC only, no Ed25519
+//! SEL Core 1.2 - HMAC-SHA256 + Ed25519 dual-signing
 
 use sel_common::{canonicalize_json, ResourceKind, SelResult, SovereignError};
 use serde_json::{from_str, Value};

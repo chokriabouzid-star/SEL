@@ -1,5 +1,5 @@
 //! # SEL Validator Types
-//! SEL Core 1.0 - No signature types (HMAC only)
+//! SEL Core 1.2 - HMAC + Ed25519 dual-proof types
 
 use sel_common::SEL_VERSION;
 use serde::{Deserialize, Serialize};
