@@ -100,15 +100,25 @@ impl Validator {
             }
         }
 
-        // Generate HMAC proof (unchanged — existing consumers unaffected)
-        let signature = self.crypto.sign(&canonical);
+        // Build the signed payload: canonical JSON prefixed with the policy
+        // that was applied. Including strict_mode in the payload means a
+        // verifier can distinguish a fully-checked proof from one produced
+        // with security rules disabled — the two are cryptographically
+        // distinct and cannot be confused.
+        let signed_payload = format!(
+            "strict_mode:{}
+{}",
+            self.config.strict_mode, canonical
+        );
+
+        // Generate HMAC proof over the policy-aware payload
+        let signature = self.crypto.sign(&signed_payload);
         let proof = ValidationProof::new(signature);
 
-        // Generate Ed25519 proof (additive — third parties can verify
-        // independently using only the public key, no shared secret needed)
+        // Generate Ed25519 proof over the same payload
         let ed25519_sig = self
             .ed25519
-            .sign(canonical.as_bytes())
+            .sign(signed_payload.as_bytes())
             .map_err(|e| SovereignError::InternalError(format!("Ed25519 signing failed: {}", e)))?;
         let ed25519_pubkey = self.ed25519.public_key_hex();
 
@@ -118,6 +128,7 @@ impl Validator {
                 .with_ed25519(ed25519_sig, ed25519_pubkey);
 
         validated.set_mission_hash(mission_hash);
+        validated.set_strict_mode(self.config.strict_mode);
 
         Ok(validated)
     }

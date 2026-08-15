@@ -66,6 +66,11 @@ pub struct ValidatedMission {
     pub validator_version: String,
     pub actions: Vec<ValidatedAction>,
     pub mission_hash: String,
+    /// Whether strict security rules (path-traversal, dangerous-pattern
+    /// checks) were applied during validation. This field is included in
+    /// the signed payload so a verifier can distinguish a fully-checked
+    /// proof from one produced with --no-strict.
+    pub strict_mode: bool,
 }
 
 impl ValidatedMission {
@@ -79,6 +84,7 @@ impl ValidatedMission {
             validator_version: crate::VALIDATOR_VERSION.to_string(),
             actions: Vec::new(),
             mission_hash: String::new(),
+            strict_mode: true,
         }
     }
 
@@ -117,6 +123,14 @@ impl ValidatedMission {
 
     pub fn set_mission_hash(&mut self, hash: String) {
         self.mission_hash = hash;
+    }
+
+    pub fn set_strict_mode(&mut self, strict: bool) {
+        self.strict_mode = strict;
+    }
+
+    pub fn strict_mode(&self) -> bool {
+        self.strict_mode
     }
 
     pub fn validation_proof(&self) -> &ValidationProof {

@@ -93,11 +93,18 @@ fn validate_mission(
 
     let validator = Validator::new(config);
 
+    if !strict_mode {
+        eprintln!(
+            "⚠️  WARNING: --no-strict disables path-traversal and dangerous-pattern              checks. The proof produced is cryptographically distinct from a              strict-mode proof and is marked strict_mode=false in the signed payload."
+        );
+    }
+
     println!("🔍 Validating...");
     let validated = validator.validate(&content)?;
 
     println!("✅ Mission validated successfully");
     println!("   • Validator:      {}", validated.validator_version());
+    println!("   • Strict Mode:    {}", validated.strict_mode());
     println!("   • Workspace Mode: {:?}", validated.workspace_mode());
     println!("   • Actions:        {}", validated.actions().len());
     println!("   • Hash:  sel:v1.0:sha256:{}", validated.mission_hash());
