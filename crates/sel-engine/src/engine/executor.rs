@@ -63,12 +63,33 @@ impl MissionExecutor {
         })
     }
 
+    /// Commands permitted at execution time — defense-in-depth mirror of
+    /// the validator's own whitelist. Even if a `ValidatedMission` is forged
+    /// (all fields are currently `pub` + `Deserialize`), this check ensures
+    /// only safe builtins can actually execute. This is a stop-gap until
+    /// `VerifiedMission` (re-verification before execution) ships in v1.3.0.
+    const EXECUTE_ALLOWED_COMMANDS: &'static [&'static str] = &["echo", "pwd"];
+
     pub fn execute(&mut self, validated: ValidatedMission) -> SelResult<ExecutionReport> {
         if validated.validation_proof_str().is_empty() {
             return Err(SovereignError::MissingValidationProof);
         }
 
         let actions = validated.actions();
+
+        // Defense-in-depth: re-check command whitelist at execution time.
+        // Validator already enforces this, but ValidatedMission's pub fields
+        // and Deserialize impl mean execute() cannot trust the struct was
+        // produced by a real Validator. This block catches forged missions.
+        for action in &actions {
+            if !Self::EXECUTE_ALLOWED_COMMANDS.contains(&action.command.as_str()) {
+                return Err(SovereignError::CapabilityViolation(format!(
+                    "Command '{}' not in executor whitelist (defense-in-depth).                      Only {:?} are permitted.",
+                    action.command,
+                    Self::EXECUTE_ALLOWED_COMMANDS
+                )));
+            }
+        }
 
         if actions.len() > self.limits.max_actions {
             return Err(SovereignError::ResourceExhaustion {
