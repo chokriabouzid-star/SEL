@@ -22,7 +22,6 @@ fn test_tick_limit_enforced() -> Result<(), SovereignError> {
 
     let mission_json = format!(r#"{{"actions": [{}]}}"#, actions.join(","));
 
-    // ✅ NO ? here - Validator::new doesn't return Result
     let validator = Validator::new(config);
     let validated = validator.validate(&mission_json)?;
     let mission_hash = validated.mission_hash();
@@ -33,6 +32,9 @@ fn test_tick_limit_enforced() -> Result<(), SovereignError> {
         MissionExecutor::new_with_limits(WorkspaceMode::ReadOnly, &mission_hash, custom_limits)?;
 
     let result = executor.execute(validated);
+
+    // Workspace no longer auto-cleans on Drop (F-002 fix).
+    executor.workspace.cleanup().ok();
 
     match result {
         Err(SovereignError::ResourceExhaustion {
@@ -64,8 +66,6 @@ fn test_max_facts_limit_enforced() {
     let mission_json = r#"{"actions":[{"command":"echo","args":["hi"]}]}"#;
     let validated = validator.validate(mission_json).unwrap();
 
-    // فعل واحد = 3 حقائق (mission_start + action_start + action_end)
-    // mission_end = الرابعة — نضبط الحد على 3 لإجبار الفشل عندها
     let mut limits = ResourceLimits::core_compliant();
     limits.max_facts = 3;
 
@@ -77,6 +77,10 @@ fn test_max_facts_limit_enforced() {
     .unwrap();
 
     let result = executor.execute(validated);
+
+    // Workspace no longer auto-cleans on Drop (F-002 fix).
+    executor.workspace.cleanup().ok();
+
     assert!(result.is_err(), "يجب أن يفشل عند تجاوز max_facts");
 
     match result {

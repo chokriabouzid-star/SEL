@@ -18,7 +18,6 @@ fn test_20_executions_identical_hash() -> Result<(), SovereignError> {
         ]
     }"#;
 
-    // ✅ NO ? here - Validator::new doesn't return Result
     let validator = Validator::new(ValidationConfig::default());
     let validated = validator.validate(mission_json)?;
     let mission_hash = validated.mission_hash();
@@ -35,6 +34,11 @@ fn test_20_executions_identical_hash() -> Result<(), SovereignError> {
             assert_eq!(*prev, report.final_hash, "Hash mismatch at execution {}", i);
         }
         previous_hash = Some(report.final_hash);
+
+        // Workspace no longer auto-cleans on Drop (F-002 fix: audit log must
+        // outlive the process handle). Clean up explicitly between iterations
+        // so the deterministic UUID does not collide on the next loop iteration.
+        executor.workspace.cleanup().ok();
     }
 
     println!(

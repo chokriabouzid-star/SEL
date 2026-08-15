@@ -13,8 +13,16 @@ const SEL_NAMESPACE: Uuid = Uuid::from_bytes([
     0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8,
 ]);
 
-/// Isolated workspace for deterministic execution
-/// 🔴 NO RANDOMNESS: UUID is derived deterministically from mission hash
+/// Isolated workspace for deterministic execution.
+/// 🔴 NO RANDOMNESS: UUID is derived deterministically from mission hash.
+///
+/// ## Lifecycle
+/// The workspace directory (and the `facts.jsonl` audit log inside it)
+/// persists after the `Workspace` is dropped. Call [`Workspace::cleanup`]
+/// explicitly and only after you have confirmed the audit log has been
+/// read or copied to a durable location. Automatic deletion on `Drop`
+/// would silently destroy the tamper-evident record the system exists
+/// to produce.
 pub struct Workspace {
     pub uuid: Uuid,
     pub path: PathBuf,
@@ -57,17 +65,18 @@ impl Workspace {
         &self.path
     }
 
+    /// Explicitly remove the workspace directory and all its contents,
+    /// including `facts.jsonl`.
+    ///
+    /// **Only call this after you have confirmed the audit log has been
+    /// persisted to a durable location.** This method is intentionally
+    /// NOT called automatically on `Drop` — the audit trail must outlive
+    /// the in-process `Workspace` handle.
     pub fn cleanup(&mut self) -> Result<(), SovereignError> {
         if self.path.exists() {
             let _ = fs::remove_dir_all(&self.path);
         }
         Ok(())
-    }
-}
-
-impl Drop for Workspace {
-    fn drop(&mut self) {
-        let _ = self.cleanup();
     }
 }
 
