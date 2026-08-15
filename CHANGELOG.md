@@ -2,6 +2,106 @@
 
 All notable changes to SEL will be documented in this file.
 
+## [1.2.1] - 2026-08-14
+
+### Security Fixes
+
+- **[HIGH] Atomic key file creation — eliminated TOCTOU window (F-003)**
+  - Previously `persist_key()` created key files with `File::create()` (umask
+    permissions, typically 0644) then called `set_permissions(0o600)` afterward
+  - Between creation and chmod, any local process could read HMAC or Ed25519
+    key material from the world-readable file
+  - Fix: `OpenOptions::new().create_new(true).mode(0o600)` on Unix creates the
+    file with restricted permissions atomically at `open(2)` time — no window
+  - `sync_all()` added after `write_all()` to guard against partial-write
+    corruption on crash
+  - Applied identically to both `crypto_authority.rs` and `signature.rs`
+
+- **[HIGH] strict_mode encoded in cryptographic proof payload (F-004)**
+  - Previously `--no-strict` produced a proof identical in format to a
+    strict-mode proof — a verifier could not distinguish the two
+  - Fix: signed payload is now `"strict_mode:{true|false}\n{canonical_json}"`
+  - Both HMAC and Ed25519 sign this policy-aware payload; strict/no-strict
+    proofs are now cryptographically distinct and cannot be confused
+  - `ValidatedMission.strict_mode` field carries the value explicitly
+  - CLI prints `• Strict Mode: true/false` and emits a stderr WARNING when
+    `--no-strict` is used
+
+- **[MEDIUM] Defense-in-depth whitelist in MissionExecutor::execute() (F-001)**
+  - `ValidatedMission` has `pub` fields and derives `Deserialize`, so it can
+    be constructed without passing through `Validator::validate()`
+  - The only admission check was `!proof_str.is_empty()` — any non-empty
+    string would pass
+  - Fix: `execute()` now re-checks the command whitelist (`["echo", "pwd"]`)
+    before any action runs; a forged mission with an unlisted command is
+    rejected with `CapabilityViolation`
+  - Note: this is a stop-gap. The architectural fix (`VerifiedMission` type
+    requiring cryptographic re-verification before execution) is a blocker
+    for v1.3.0
+
+### Correctness Fixes
+
+- **[HIGH] Workspace::Drop no longer deletes facts.jsonl (F-002)**
+  - `Workspace` previously implemented `Drop` by calling `cleanup()`, which
+    called `fs::remove_dir_all()` on the workspace directory — including the
+    `facts.jsonl` tamper-evident audit log
+  - The project's own `sel-engine/src/main.rs` already acknowledged this with
+    the comment "copy workspace path before execution because it will be
+    deleted afterward"
+  - A log that self-destructs on normal process exit cannot serve as a durable
+    audit trail
+  - Fix: `impl Drop` removed entirely. `cleanup()` remains as an explicit,
+    opt-in method. Callers must invoke it only after confirming the audit log
+    has been persisted elsewhere
+  - Integration tests updated to call `executor.workspace.cleanup().ok()`
+    explicitly after each test run
+
+### Code Quality
+
+- **SEL_VERSION derived from Cargo.toml at compile time (F-011)**
+  - `SEL_VERSION` was hardcoded to `"1.1.0-alpha"` while workspace version
+    was 1.2.0. This constant is written into every `ValidatedMission.core_version`
+    and therefore into every cryptographic proof
+  - Fix: `pub const SEL_VERSION: &str = env!("CARGO_PKG_VERSION")`
+  - Removed `SEL_CORE_VERSION` and `SEL_EXTENDED_VERSION` (never referenced
+    anywhere in the workspace — confirmed via `rg`)
+
+- **Removed 2 dead-code files from sel-engine (F-010)**
+  - `engine/mission_executor.rs` (605 B) and `engine/builtin_echo.rs` (827 B)
+    were present on disk but not declared in `engine/mod.rs` — rustc never
+    compiled them
+  - Mirrors the cleanup done in `sel-validator` in v1.2.0 (4 files removed)
+    which was scoped to that crate and never extended to `sel-engine`
+
+- **Updated stale module-level comments**
+  - `validator.rs` and `types.rs` still said "HMAC only, no Ed25519" after
+    Ed25519 was added in v1.2.0
+
+### Documentation
+
+- README "Not Yet Supported" section corrected:
+  - Removed "Ed25519 signatures (coming in v1.2)" — shipped in v1.2.0
+  - "File operations" correctly updated to "coming in v1.3"
+- README Integration tests row: 6/6 → 7/7
+- CHANGELOG [1.0.0]: added inline correction note (actual count was 29+3,
+  not 33/33 as originally stated)
+
+### Blocker tracked for v1.3.0
+
+- `VerifiedMission` type: a wrapper around `ValidatedMission` constructible
+  only via `Validator::reverify()` which recomputes canonical JSON and
+  re-checks HMAC/Ed25519 — makes `MissionExecutor::execute()` structurally
+  safe without breaking serialization/transport workflows
+
+### Test Coverage
+
+- 45 passed + 3 intentionally ignored (unchanged from v1.2.0)
+- Tests updated to call `workspace.cleanup()` explicitly after each run
+  (consequence of F-002 fix: lifecycle management is now the caller's
+  responsibility)
+
+---
+
 ## [1.2.0] - 2026-08-12
 
 ### New Features
