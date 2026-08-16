@@ -579,7 +579,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "sel-common"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "hex",
  "serde",
@@ -591,7 +591,7 @@ dependencies = [
 
 [[package]]
 name = "sel-engine"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "chrono",
  "hex",
@@ -607,7 +607,7 @@ dependencies = [
 
 [[package]]
 name = "sel-validator"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "ed25519-dalek",
  "hex",
@@ -623,7 +623,7 @@ dependencies = [
 
 [[package]]
 name = "sel-validator-cli"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "clap",
  "sel-common",

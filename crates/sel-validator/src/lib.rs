@@ -15,4 +15,4 @@ pub use types::{
 };
 pub use validator::{ValidationConfig, Validator};
 
-pub const VALIDATOR_VERSION: &str = "1.2.0";
+pub const VALIDATOR_VERSION: &str = env!("CARGO_PKG_VERSION");
